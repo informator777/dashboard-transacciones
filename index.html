@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoreo - Transacciones Digitales por Entidad</title>
+    <!-- Chart.js para renderizar los gráficos de series de tiempo -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #f4f6f9;
+            --card-bg: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --border-color: #e2e8f0;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            padding: 30px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Encabezado Principal */
+        .top-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        .breadcrumbs {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        .main-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .live-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #ffffff;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border: 1px solid var(--border-color);
+        }
+
+        .dot {
+            width: 9px;
+            height: 9px;
+            background-color: var(--accent-green);
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 8px var(--accent-green);
+        }
+
+        /* Tarjetas KPI de Resumen */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+            margin-bottom: 35px;
+        }
+
+        .kpi-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 22px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+
+        .kpi-title {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            font-weight: 500;
+        }
+
+        .kpi-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 6px;
+        }
+
+        .kpi-subtext {
+            font-size: 0.8rem;
+            color: var(--accent-green);
+            font-weight: 600;
+        }
+
+        .kpi-subtext.alert-text {
+            color: var(--accent-red);
+        }
+
+        /* Título de Sección */
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .section-subtitle {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .time-range-badge {
+            background: #e2e8f0;
+            padding: 6px 14px;
+            border-radius: 16px;
+            font-size: 0.8rem;
+            color: #475569;
+            font-family: monospace;
+        }
+
+        /* Grid de 6 Dashboards de Entidades */
+        .dashboards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(430px, 1fr));
+            gap: 25px;
+        }
+
+        .entity-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 22px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .entity-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+
+        .entity-name {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .entity-code {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            font-family: monospace;
+        }
+
+        .entity-total-box {
+            text-align: right;
+        }
+
+        .entity-total {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .entity-total-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .chart-container {
+            position: relative;
+            height: 200px;
+            width: 100%;
+        }
+
+        /* Animación de Parpadeo / Alerta (>1 hora inactiva) */
+        .card-alert {
+            animation: pulse-alert 1.5s infinite alternate;
+            border-color: #ef4444 !important;
+        }
+
+        @keyframes pulse-alert {
+            0% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+                background-color: #ffffff;
+            }
+            100% {
+                box-shadow: 0 0 20px 5px rgba(239, 68, 68, 0.25);
+                background-color: #fff5f5;
+            }
+        }
+
+        .alert-badge-icon {
+            display: inline-block;
+            background: #ef4444;
+            color: white;
+            font-size: 0.7rem;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: 700;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="top-header">
+        <div>
+            <div class="breadcrumbs">MONITOREO • BASE DE DATOS DATAW</div>
+            <h1 class="main-title">Transacciones digitales por entidad</h1>
+        </div>
+        <div class="live-badge">
+            <span class="dot"></span>
+            Actualizado: <span id="last-update-time">--:--:--</span>
+        </div>
+    </div>
+
+    <!-- KPIs Row -->
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <div class="kpi-title">Transacciones (última hora)</div>
+            <div class="kpi-value" id="kpi-total-tx">0</div>
+            <div class="kpi-subtext" id="kpi-tx-growth">+0% vs. hora anterior</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-title">Entidades monitoreadas</div>
+            <div class="kpi-value" id="kpi-total-entities">6</div>
+            <div class="kpi-subtext" style="color: var(--text-secondary);">Sin cambios</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-title">Servicio con mayor volumen</div>
+            <div class="kpi-value" id="kpi-top-service" style="font-size: 1.4rem;">---</div>
+            <div class="kpi-subtext" id="kpi-top-service-sub">liderando la red</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-title">Alertas activas (>1h sin tx)</div>
+            <div class="kpi-value" id="kpi-alerts-count">0</div>
+            <div class="kpi-subtext alert-text" id="kpi-alerts-detail">Sin caídas de servicio</div>
+        </div>
+    </div>
+
+    <!-- Título de Sección -->
+    <div class="section-header">
+        <div>
+            <h2 class="section-title">Detalle por entidad</h2>
+            <div class="section-subtitle">Hasta 5 servicios por gráfico • serie de tiempo, última hora</div>
+        </div>
+        <div class="time-range-badge" id="time-range-text">actualiza cada 15s</div>
+    </div>
+
+    <!-- Contenedor dinámico para los 6 Dashboards de Entidades -->
+    <div class="dashboards-grid" id="dashboards-container"></div>
+</div>
+
+<script>
+    const SERVICE_COLORS = ['#3b82f6', '#d97706', '#10b981', '#8b5cf6', '#ec4899'];
+    const chartInstances = {};
+
+    async function fetchDashboardData() {
+        try {
+            const response = await fetch('/api/v1/monitoreo');
+            const data = await response.json();
+            
+            updateKPIs(data.resumen, data.entidades);
+            renderEntities(data.entidades);
+        } catch (error) {
+            console.error("Error consultando la API:", error);
+        }
+    }
+
+    function updateKPIs(resumen, entidades) {
+        document.getElementById('last-update-time').innerText = resumen.timestamp.split(' ')[1] || resumen.timestamp;
+        document.getElementById('kpi-total-tx').innerText = resumen.total_transacciones.toLocaleString('es-BO');
+        document.getElementById('kpi-total-entities').innerText = resumen.entidades_monitoreadas;
+        
+        const alertCount = resumen.alertas_activas;
+        document.getElementById('kpi-alerts-count').innerText = alertCount;
+        
+        const alertDetail = document.getElementById('kpi-alerts-detail');
+        if (alertCount > 0) {
+            const entidadesAlerta = entidades.filter(e => e.alerta).map(e => e.entidad).join(', ');
+            alertDetail.innerText = `Inactividad en: ${entidadesAlerta}`;
+            alertDetail.style.color = '#ef4444';
+        } else {
+            alertDetail.innerText = 'Sin caídas de servicio';
+            alertDetail.style.color = '#10b981';
+        }
+
+        let topGlobalNombre = 'N/A';
+        let maxVolumen = -1;
+        entidades.forEach(e => {
+            if (e.top_servicios && e.top_servicios.length > 0) {
+                if (e.top_servicios[0].total > maxVolumen) {
+                    maxVolumen = e.top_servicios[0].total;
+                    topGlobalNombre = `${e.top_servicios[0].nombre} (${e.entidad})`;
+                }
+            }
+        });
+        document.getElementById('kpi-top-service').innerText = topGlobalNombre;
+    }
+
+    function renderEntities(entidades) {
+        const container = document.getElementById('dashboards-container');
+
+        entidades.forEach(item => {
+            const cardId = `card-entity-${item.entidad.toLowerCase()}`;
+            const canvasId = `chart-${item.entidad.toLowerCase()}`;
+            let cardElem = document.getElementById(cardId);
+
+            if (!cardElem) {
+                cardElem = document.createElement('div');
+                cardElem.id = cardId;
+                cardElem.className = 'entity-card';
+                container.appendChild(cardElem);
+            }
+
+            // Activa animación CSS parpadeante si alerta == true
+            if (item.alerta) {
+                cardElem.classList.add('card-alert');
+            } else {
+                cardElem.classList.remove('card-alert');
+            }
+
+            const alertBadgeHTML = item.alerta ? `<span class="alert-badge-icon">SIN TX > 1H</span>` : '';
+
+            cardElem.innerHTML = `
+                <div class="entity-card-header">
+                    <div>
+                        <div class="entity-name">${item.entidad} ${alertBadgeHTML}</div>
+                        <div class="entity-code">ENT-${item.entidad}</div>
+                    </div>
+                    <div class="entity-total-box">
+                        <div class="entity-total">${item.total_ultima_hora.toLocaleString('es-BO')}</div>
+                        <div class="entity-total-label">tx / última hora</div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="${canvasId}"></canvas>
+                </div>
+            `;
+
+            const datasets = item.top_servicios.map((serv, index) => {
+                return {
+                    label: `${serv.nombre} (${serv.total.toLocaleString()})`,
+                    data: serv.puntos.map(p => ({ x: p.x, y: p.y })),
+                    borderColor: SERVICE_COLORS[index % SERVICE_COLORS.length],
+                    backgroundColor: SERVICE_COLORS[index % SERVICE_COLORS.length],
+                    borderWidth: 2,
+                    tension: 0.35,
+                    pointRadius: 0,
+                    pointHoverRadius: 5
+                };
+            });
+
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            
+            if (chartInstances[canvasId]) {
+                chartInstances[canvasId].destroy();
+            }
+
+            chartInstances[canvasId] = new Chart(ctx, {
+                type: 'line',
+                data: { datasets: datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'bottom',
+                            labels: { boxWidth: 8, usePointStyle: true, font: { size: 10 } }
+                        },
+                        tooltip: { enabled: true }
+                    },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { font: { size: 9 }, color: '#94a3b8' } },
+                        y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 9 }, color: '#94a3b8' } }
+                    }
+                }
+            });
+        });
+    }
+
+   // Consulta inicial y actualización automática cada 10 minutos (600,000 milisegundos)
+    fetchDashboardData();
+    setInterval(fetchDashboardData, 600000);
+</script>
+</body>
+</html>

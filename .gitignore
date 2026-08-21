@@ -1,0 +1,8 @@
+cat << 'EOF' > /var/www/dashboard-transacciones/.gitignore
+venv/
+__pycache__/
+*.pyc
+.env
+.vscode/
+.idea/
+EOF
