@@ -1,6 +1,7 @@
+from contextlib import asynccontextmanager
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -46,7 +47,7 @@ def obtener_estructura_base():
     return {
         "resumen": {
             "total_transacciones": 0,
-            "entidades_monitoreadas": 6,
+            "entidades_monitoreadas": len(ENTIDADES_MAP),
             "alertas_activas": 0,
             "timestamp": "Actualizando..."
         },
@@ -73,13 +74,20 @@ def consultar_base_datos():
         )
         cursor = conn.cursor()
 
+        # Obtener la fecha/hora exacta desde el servidor MySQL para evitar desfasajes de reloj
+        cursor.execute("SELECT NOW()")
+        db_now = cursor.fetchone()[0]
+        ahora_dt = db_now if isinstance(db_now, datetime) else datetime.now()
+
+        ultimos_60_min = [(ahora_dt - timedelta(minutes=i)).strftime("%H:%M") for i in range(59, -1, -1)]
+
         datos_entidades = {
             cod: {
                 "entidad": nombre,
                 "cod_entidad": cod,
                 "total_ultima_hora": 0,
                 "alerta": False,
-                "servicios": {}, # serv_nombre -> {"total": int, "puntos": {min_str: count}}
+                "servicios": {},
                 "ultima_fecha": None
             }
             for cod, nombre in ENTIDADES_MAP.items()
@@ -119,7 +127,8 @@ def consultar_base_datos():
 
                         if ent["ultima_fecha"] is None or max_f > ent["ultima_fecha"]:
                             ent["ultima_fecha"] = max_f
-            except Exception:
+            except Exception as ex:
+                print(f"Error consultando tabla {tabla}: {ex}")
                 continue
 
         conn.close()
@@ -127,7 +136,6 @@ def consultar_base_datos():
         resultado_entidades = []
         total_general = 0
         alertas_activas = 0
-        ahora = datetime.now()
 
         for cod_ent, info in datos_entidades.items():
             if info["ultima_fecha"] is None:
@@ -136,7 +144,7 @@ def consultar_base_datos():
                 try:
                     fecha_val = info["ultima_fecha"]
                     fecha_dt = datetime.strptime(str(fecha_val)[:19], "%Y-%m-%d %H:%M:%S") if isinstance(fecha_val, str) else fecha_val
-                    info["alerta"] = (ahora - fecha_dt).total_seconds() > 3600
+                    info["alerta"] = (ahora_dt - fecha_dt).total_seconds() > 3600
                 except Exception:
                     info["alerta"] = False
 
@@ -145,17 +153,30 @@ def consultar_base_datos():
 
             total_general += info["total_ultima_hora"]
 
-            # Formatear Top 5 servicios con sus puntos para la gráfica
             servicios_ordenados = sorted(info["servicios"].items(), key=lambda x: x[1]["total"], reverse=True)[:5]
             top_formatted = []
+            
             for s_name, s_data in servicios_ordenados:
-                puntos_list = [
-                    {"minuto": m, "total": c} 
-                    for m, c in sorted(s_data["puntos"].items())
-                ]
+                puntos_list = []
+                for m in ultimos_60_min:
+                    val = s_data["puntos"].get(m, 0)
+                    puntos_list.append({
+                        "minuto": m,
+                        "hora": m,
+                        "time": m,
+                        "x": m,
+                        "total": val,
+                        "cant": val,
+                        "cantidad": val,
+                        "count": val,
+                        "y": val,
+                        "valor": val
+                    })
+
                 top_formatted.append({
                     "nombre": s_name,
                     "total": s_data["total"],
+                    "cant": s_data["total"],
                     "puntos": puntos_list
                 })
 
@@ -172,7 +193,7 @@ def consultar_base_datos():
                 "total_transacciones": total_general,
                 "entidades_monitoreadas": len(resultado_entidades),
                 "alertas_activas": alertas_activas,
-                "timestamp": ahora.strftime("%Y-%m-%d %H:%M:%S")
+                "timestamp": ahora_dt.strftime("%Y-%m-%d %H:%M:%S")
             },
             "entidades": resultado_entidades
         }
@@ -183,11 +204,16 @@ def consultar_base_datos():
 def background_worker():
     while True:
         consultar_base_datos()
-        time.sleep(15) # Actualización rápida en segundo plano cada 15s
+        time.sleep(15)
 
-threading.Thread(target=background_worker, daemon=True).start()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Arrancar hilo en segundo plano al iniciar FastAPI
+    thread = threading.Thread(target=background_worker, daemon=True)
+    thread.start()
+    yield
 
-app = FastAPI(title="API Monitoreo")
+app = FastAPI(title="API Monitoreo", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

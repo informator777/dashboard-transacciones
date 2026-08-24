@@ -147,7 +147,7 @@
             font-family: monospace;
         }
 
-        /* Grid de 6 Dashboards de Entidades */
+        /* Grid de Dashboards de Entidades */
         .dashboards-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(430px, 1fr));
@@ -238,8 +238,8 @@
 <div class="container">
     <div class="top-header">
         <div>
-            <div class="breadcrumbs">MONITOREO • BASE DE DATOS DATAW</div>
-            <h1 class="main-title">Transacciones digitales por entidad</h1>
+            <div class="breadcrumbs">MONITOREO TRANSACCIONAL DATAW</div>
+            <h1 class="main-title">Transacciones digitales por entidad </h1>
         </div>
         <div class="live-badge">
             <span class="dot"></span>
@@ -249,14 +249,15 @@
 
     <!-- KPIs Row -->
     <div class="kpi-grid">
+   
         <div class="kpi-card">
-            <div class="kpi-title">Transacciones (última hora)</div>
+            <div class="kpi-title">Transacciones Trxs. (última hora)</div>
             <div class="kpi-value" id="kpi-total-tx">0</div>
             <div class="kpi-subtext" id="kpi-tx-growth">+0% vs. hora anterior</div>
         </div>
         <div class="kpi-card">
             <div class="kpi-title">Entidades monitoreadas</div>
-            <div class="kpi-value" id="kpi-total-entities">6</div>
+            <div class="kpi-value" id="kpi-total-entities">0</div>
             <div class="kpi-subtext" style="color: var(--text-secondary);">Sin cambios</div>
         </div>
         <div class="kpi-card">
@@ -265,9 +266,14 @@
             <div class="kpi-subtext" id="kpi-top-service-sub">liderando la red</div>
         </div>
         <div class="kpi-card">
-            <div class="kpi-title">Alertas activas (>1h sin tx)</div>
+            <div class="kpi-title">Alertas activas (>1h sin Trxs)</div>
             <div class="kpi-value" id="kpi-alerts-count">0</div>
             <div class="kpi-subtext alert-text" id="kpi-alerts-detail">Sin caídas de servicio</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-title">Orígenes Monitoreados</div>
+            <div class="kpi-value" id="kpi-total-tx"></div>
+            <div class="kpi-subtext" id="kpi-tx-growth">APWS-APMO-APWA-APWB-APWY-LUKA</div>
         </div>
     </div>
 
@@ -280,12 +286,28 @@
         <div class="time-range-badge" id="time-range-text">actualiza cada 15s</div>
     </div>
 
-    <!-- Contenedor dinámico para los 6 Dashboards de Entidades -->
+    <!-- Contenedor dinámico para los Dashboards de Entidades -->
     <div class="dashboards-grid" id="dashboards-container"></div>
 </div>
 
 <script>
-    const SERVICE_COLORS = ['#3b82f6', '#d97706', '#10b981', '#8b5cf6', '#ec4899'];
+    // MAPEO DE COLORES FIJOS POR SERVICIO / OPERADOR
+    const MAPA_COLORES_SERVICIOS = {
+        "VIVA / NUEVATEL": "#10b981",          // Verde
+        "MULTIVISION / TIGO HOME": "#3b82f6",  // Azul
+        "TELECEL": "#d97706",                  // Naranja / Ámbar
+        "AXS": "#ef4444",                      // Rojo
+        "TUVES": "#8b5cf6",                    // Púrpura
+        "ENTEL": "#06b6d4",                    // Cían
+        "ENTEL PREPAGO": "#f97316",            // Naranja Claro
+        "YANBAL": "#ec4899",                   // Rosado
+        "HERBALIFE": "#059669"                 // Verde Esmeralda
+    };
+
+    function obtenerColorServicio(nombreServicio) {
+        return MAPA_COLORES_SERVICIOS[nombreServicio] || "#94a3b8"; // Gris por defecto
+    }
+
     const chartInstances = {};
 
     async function fetchDashboardData() {
@@ -335,8 +357,8 @@
         const container = document.getElementById('dashboards-container');
 
         entidades.forEach(item => {
-            const cardId = `card-entity-${item.entidad.toLowerCase()}`;
-            const canvasId = `chart-${item.entidad.toLowerCase()}`;
+            const cardId = `card-entity-${item.entidad.toLowerCase().replace(/\s+/g, '-')}`;
+            const canvasId = `chart-${item.entidad.toLowerCase().replace(/\s+/g, '-')}`;
             let cardElem = document.getElementById(cardId);
 
             if (!cardElem) {
@@ -371,12 +393,13 @@
                 </div>
             `;
 
-            const datasets = item.top_servicios.map((serv, index) => {
+            const datasets = item.top_servicios.map((serv) => {
+                const colorFijo = obtenerColorServicio(serv.nombre);
                 return {
                     label: `${serv.nombre} (${serv.total.toLocaleString()})`,
                     data: serv.puntos.map(p => ({ x: p.x, y: p.y })),
-                    borderColor: SERVICE_COLORS[index % SERVICE_COLORS.length],
-                    backgroundColor: SERVICE_COLORS[index % SERVICE_COLORS.length],
+                    borderColor: colorFijo,
+                    backgroundColor: colorFijo,
                     borderWidth: 2,
                     tension: 0.35,
                     pointRadius: 0,
@@ -414,9 +437,9 @@
         });
     }
 
-   // Consulta inicial y actualización automática cada 10 minutos (600,000 milisegundos)
+    // Consulta inicial y actualización automática cada 15 segundos (15,000 ms)
     fetchDashboardData();
-    setInterval(fetchDashboardData, 600000);
+    setInterval(fetchDashboardData, 30000);
 </script>
 </body>
 </html>
