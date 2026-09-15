@@ -13,34 +13,41 @@ DB_PASS = "datawpassword"
 DB_NAME = "Dataw"
 
 ENTIDADES_MAP = {
+    "0304": "LUKA",
     "1005": "BCP",
+    "1017": "BANCO SOL",
+    "0035": "BANCO GANADERO",
     "0009": "BMSC",
     "0008": "BNB",
     "0004": "BISA",
     "5006": "ECOFUTURO",
     "9065": "DIACONIA"
+    
 }
 
 TABLAS_ESPECIFICAS = [
     ("mov_telecel", "TELECEL"),
-    ("mov_multivision", "MULTIVISION / TIGO HOME"),
-    ("mov_nuevatel", "VIVA / NUEVATEL"),
+    ("mov_multivision", "TIGO HOME"),
+    ("mov_nuevatel", "NUEVATEL"),
     ("mov_axs", "AXS"),
     ("mov_tuves", "TUVES"),
-    ("mov_entel", "ENTEL"),
-    ("mov_entelpre", "ENTEL PREPAGO")
+    ("mov_entelrec", "ENTEL SERVICIOS")
 ]
 
-ORIGENES_PERMITIDOS = "('APWS', 'APWG', 'APWA', 'APWY', 'APWB', 'APMO', 'APTE', 'MCQN', 'LUKA')"
-CODS_ENTIDADES_MIX = "('1005', '0009', '0008', '0004', '5006', '9065', 1005, 9, 8, 4, 5006, 9065, 20, 21)"
+ORIGENES_PERMITIDOS = "('APWS', 'APWG', 'APWA', 'APWY', 'APWB', 'APMO', 'LUKA')"
+CODS_ENTIDADES_MIX = "('1005', '0009', '0008', '0004', '5006', '9065', '1017', '0035', '0304')"
 
+# Mapeo limpio directo a 4 dígitos con comas sintácticamente correctas
 MAPPING_COD_CLEAN = {
-    "1005": "1005", "0020": "1005", "20": "1005",
-    "0008": "0008", "8": "0008",
-    "0009": "0009", "9": "0009", "0021": "0009", "21": "0009",
-    "0004": "0004", "4": "0004",
+    "1005": "1005",
+    "0009": "0009",
+    "0008": "0008",
+    "0004": "0004",
     "5006": "5006",
-    "9065": "9065"
+    "9065": "9065",
+    "0304": "0304",
+    "1017": "1017",
+    "0035": "0035"
 }
 
 def obtener_estructura_base():
@@ -74,7 +81,7 @@ def consultar_base_datos():
         )
         cursor = conn.cursor()
 
-        # Obtener la fecha/hora exacta desde el servidor MySQL para evitar desfasajes de reloj
+        # Obtener la fecha/hora exacta desde el servidor MySQL
         cursor.execute("SELECT NOW()")
         db_now = cursor.fetchone()[0]
         ahora_dt = db_now if isinstance(db_now, datetime) else datetime.now()
@@ -208,7 +215,6 @@ def background_worker():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Arrancar hilo en segundo plano al iniciar FastAPI
     thread = threading.Thread(target=background_worker, daemon=True)
     thread.start()
     yield
@@ -225,3 +231,59 @@ app.add_middleware(
 @app.get("/api/v1/monitoreo")
 def obtener_monitoreo_general():
     return CACHE_MONITOREO
+
+@app.get("/api/v1/alertas-premium")
+def get_alertas_premium():
+    canales = [
+        {"nombre": "TIGO", "tabla": "mov_telecel"},
+        {"nombre": "TIGO HOME", "tabla": "mov_multivision"},
+        {"nombre": "ENTEL SERVICIOS", "tabla": "mov_entelrec"},
+        {"nombre": "NUEVATEL", "tabla": "mov_nuevatel"},
+        {"nombre": "EPSAS", "tabla": "mov_epsas"}
+    ]
+    
+    ORIGENES_DIGITALES_PREMIUM = "('APWS', 'LUKA', 'APMO', 'APWB', 'APWY', 'APWA')"
+    
+    query = " UNION ALL ".join([
+        f"SELECT '{c['nombre']}' AS canal, '{c['tabla']}' AS tabla, COUNT(*) AS tx_count "
+        f"FROM {c['tabla']} "
+        f"WHERE fecha = CURDATE() "
+        f"  AND hora >= SUBTIME(CURRENT_TIME(), '00:10:00') "
+        f"  AND UPPER(TRIM(estado)) = 'P' "
+        f"  AND UPPER(TRIM(origen)) IN {ORIGENES_DIGITALES_PREMIUM}"
+        for c in canales
+    ])
+    
+    respuesta = []
+    
+    try:
+        conn = pymysql.connect(
+            host=DB_HOST, user=DB_USER, password=DB_PASS, database=DB_NAME,
+            connect_timeout=5, read_timeout=10,
+            cursorclass=pymysql.cursors.DictCursor
+        )
+        
+        with conn.cursor() as cursor:
+            cursor.execute(query)
+            resultados = cursor.fetchall()
+            
+            for row in resultados:
+                cant = row["tx_count"]
+                respuesta.append({
+                    "canal": row["canal"],
+                    "tabla": row["tabla"],
+                    "tx_count": cant,
+                    "tx_5min": cant,
+                    "alerta": cant == 0
+                })
+                
+        conn.close()
+        
+    except Exception as e:
+        print(f"Error consultando alertas premium: {e}")
+        return [
+            {"canal": c["nombre"], "tabla": c["tabla"], "tx_count": 0, "tx_5min": 0, "alerta": True}
+            for c in canales
+        ]
+        
+    return respuesta

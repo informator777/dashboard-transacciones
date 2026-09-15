@@ -119,6 +119,101 @@
             color: var(--accent-red);
         }
 
+        /* Sección Alertas Transacciones Premium */
+        .premium-section {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            margin-bottom: 35px;
+        }
+
+        .premium-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .premium-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .premium-badge {
+            background: #e2e8f0;
+            color: #475569;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .btn-audio-status {
+            cursor: pointer;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background-color: #fef08a;
+            color: #854d0e;
+            transition: all 0.2s ease;
+        }
+
+        .btn-audio-status.active {
+            background-color: #dcfce7;
+            color: #166534;
+        }
+
+        .premium-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+        }
+
+        .premium-card {
+            background: #ffffff;
+            border: 1px solid var(--accent-green);
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .premium-card-title {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            margin-bottom: 5px;
+        }
+
+        .premium-card-value {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin: 4px 0;
+        }
+
+        .premium-card-sub {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        @keyframes pulsoRojo {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+
+        .alerta-critica-pulsante {
+            border: 2px solid var(--accent-red) !important;
+            background-color: #fff5f5 !important;
+            animation: pulsoRojo 1.5s infinite;
+        }
+
         /* Título de Sección */
         .section-header {
             display: flex;
@@ -203,7 +298,6 @@
             width: 100%;
         }
 
-        /* Animación de Parpadeo / Alerta (>1 hora inactiva) */
         .card-alert {
             animation: pulse-alert 1.5s infinite alternate;
             border-color: #ef4444 !important;
@@ -239,7 +333,7 @@
     <div class="top-header">
         <div>
             <div class="breadcrumbs">MONITOREO TRANSACCIONAL DATAW</div>
-            <h1 class="main-title">Transacciones digitales por entidad </h1>
+            <h1 class="main-title">Transacciones digitales por entidad</h1>
         </div>
         <div class="live-badge">
             <span class="dot"></span>
@@ -249,7 +343,6 @@
 
     <!-- KPIs Row -->
     <div class="kpi-grid">
-   
         <div class="kpi-card">
             <div class="kpi-title">Transacciones Trxs. (última hora)</div>
             <div class="kpi-value" id="kpi-total-tx">0</div>
@@ -272,8 +365,49 @@
         </div>
         <div class="kpi-card">
             <div class="kpi-title">Orígenes Monitoreados</div>
-            <div class="kpi-value" id="kpi-total-tx"></div>
-            <div class="kpi-subtext" id="kpi-tx-growth">APWS-APMO-APWA-APWB-APWY-LUKA</div>
+            <div class="kpi-value" style="font-size: 0.9rem; margin-top: 10px;">APWS-APMO-APWA</div>
+            <div class="kpi-subtext" style="color: var(--text-secondary);">APWB-APWY-LUKA</div>
+        </div>
+    </div>
+
+    <!-- Sección Alertas Transacciones Premium -->
+    <div class="premium-section">
+        <div class="premium-header">
+            <div class="premium-title">Clientes sin transacciones digitales (LUKA-Banca Digital) últimos 5 minutos</div>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <button id="btn-probar-audio" onclick="probarAudioManual()" class="btn-audio-status">
+                    🔇 Clic aquí para activar audio
+                </button>
+                <span class="premium-badge">Sincronización: 5 min</span>
+            </div>
+        </div>
+
+        <div class="premium-grid" id="contenedor-alertas-premium">
+            <div id="card-mov_telecel" class="premium-card">
+                <div class="premium-card-title">TIGO</div>
+                <div id="tx-mov_telecel" class="premium-card-value">0</div>
+                <div class="premium-card-sub">tx / 10m</div>
+            </div>
+            <div id="card-mov_multivision" class="premium-card">
+                <div class="premium-card-title">TIGO HOME</div>
+                <div id="tx-mov_multivision" class="premium-card-value">0</div>
+                <div class="premium-card-sub">tx / 10m</div>
+            </div>
+            <div id="card-mov_entelrec" class="premium-card">
+                <div class="premium-card-title">ENTEL RECARGA</div>
+                <div id="tx-mov_entelrec" class="premium-card-value">0</div>
+                <div class="premium-card-sub">tx / 10m</div>
+            </div>
+            <div id="card-mov_nuevatel" class="premium-card">
+                <div class="premium-card-title">NUEVATEL</div>
+                <div id="tx-mov_nuevatel" class="premium-card-value">0</div>
+                <div class="premium-card-sub">tx / 10m</div>
+            </div>
+            <div id="card-mov_epsas" class="premium-card">
+                <div class="premium-card-title">EPSAS</div>
+                <div id="tx-mov_epsas" class="premium-card-value">0</div>
+                <div class="premium-card-sub">tx / 10m</div>
+            </div>
         </div>
     </div>
 
@@ -291,21 +425,113 @@
 </div>
 
 <script>
-    // MAPEO DE COLORES FIJOS POR SERVICIO / OPERADOR
+    let audioHabilitado = false;
+    let listaVoces = [];
+
+    // Cargar la lista de voces de forma asíncrona
+    function cargarVoces() {
+        if ('speechSynthesis' in window) {
+            listaVoces = window.speechSynthesis.getVoices();
+        }
+    }
+
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.onvoiceschanged = cargarVoces;
+        cargarVoces();
+    }
+
+    // Función principal para reproducir mensajes por voz
+    function hablarAlerta(mensaje) {
+        if (!('speechSynthesis' in window)) return;
+
+        window.speechSynthesis.cancel(); // Detener audios anteriores
+
+        const utterance = new SpeechSynthesisUtterance(mensaje);
+        utterance.lang = 'es-ES';
+        utterance.rate = 0.9;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+
+        // Seleccionar una voz nativa en español
+        if (listaVoces.length === 0) cargarVoces();
+        const vozEspanol = listaVoces.find(v => v.lang.startsWith('es'));
+        if (vozEspanol) {
+            utterance.voice = vozEspanol;
+        }
+
+        window.speechSynthesis.speak(utterance);
+    }
+
+    // Activar audio con interacción del usuario
+    function activarAudioUsuario() {
+        if (!audioHabilitado) {
+            audioHabilitado = true;
+            const btnAudio = document.getElementById('btn-probar-audio');
+            if (btnAudio) {
+                btnAudio.classList.add('active');
+                btnAudio.innerHTML = '🔊 Sonido Activo';
+            }
+        }
+    }
+
+    document.addEventListener('click', activarAudioUsuario, { once: true });
+
+    function probarAudioManual() {
+        activarAudioUsuario();
+        hablarAlerta("Prueba de audio exitosa. El sistema de alertas por voz está activo.");
+    }
+
+    // Consultar alertas premium desde el backend
+    async function verificarAlertasPremium() {
+        try {
+            const response = await fetch('/api/v1/alertas-premium');
+            const data = await response.json();
+            
+            let canalesConFalla = [];
+
+            data.forEach(item => {
+                const tarjeta = document.getElementById(`card-${item.tabla}`);
+                const contador = document.getElementById(`tx-${item.tabla}`);
+                
+                const conteo = (item.tx_count !== undefined) ? item.tx_count : item.tx_5min;
+                
+                if (contador) contador.innerText = conteo;
+
+                if (tarjeta) {
+                    if (item.alerta) {
+                        tarjeta.classList.add('alerta-critica-pulsante');
+                        canalesConFalla.push(item.canal);
+                    } else {
+                        tarjeta.classList.remove('alerta-critica-pulsante');
+                    }
+                }
+            });
+
+            // Si hay canales sin transacciones, emitir voz
+            if (canalesConFalla.length > 0) {
+                const listaCanales = canalesConFalla.join(', ');
+                hablarAlerta(`Atención: Alerta crítica. Sin transacciones digitales en los últimos 5 minutos en: ${listaCanales}`);
+            }
+
+        } catch (error) {
+            console.error("Error al obtener Alertas Premium:", error);
+        }
+    }
+
+    // Mapeo de colores fijos
     const MAPA_COLORES_SERVICIOS = {
-        "VIVA / NUEVATEL": "#10b981",          // Verde
-        "MULTIVISION / TIGO HOME": "#3b82f6",  // Azul
-        "TELECEL": "#d97706",                  // Naranja / Ámbar
-        "AXS": "#ef4444",                      // Rojo
-        "TUVES": "#8b5cf6",                    // Púrpura
-        "ENTEL": "#06b6d4",                    // Cían
-        "ENTEL PREPAGO": "#f97316",            // Naranja Claro
-        "YANBAL": "#ec4899",                   // Rosado
-        "HERBALIFE": "#059669"                 // Verde Esmeralda
+        "NUEVATEL": "#51E400",
+        "TIGO HOME": "#3b82f6",
+        "TELECEL": "#032766",
+        "AXS": "#ef4444",
+        "TUVES": "#8b5cf6",
+        "ENTEL SERVICIOS": "#FF2C2C",
+        "YANBAL": "#ec4899",
+        "HERBALIFE": "#059669"
     };
 
     function obtenerColorServicio(nombreServicio) {
-        return MAPA_COLORES_SERVICIOS[nombreServicio] || "#94a3b8"; // Gris por defecto
+        return MAPA_COLORES_SERVICIOS[nombreServicio] || "#94a3b8";
     }
 
     const chartInstances = {};
@@ -368,7 +594,6 @@
                 container.appendChild(cardElem);
             }
 
-            // Activa animación CSS parpadeante si alerta == true
             if (item.alerta) {
                 cardElem.classList.add('card-alert');
             } else {
@@ -437,9 +662,12 @@
         });
     }
 
-    // Consulta inicial y actualización automática cada 15 segundos (15,000 ms)
+    // Inicializaciones y temporizadores
+    setTimeout(verificarAlertasPremium, 800);
+    setInterval(verificarAlertasPremium, 300000); // 5 minutos
+
     fetchDashboardData();
-    setInterval(fetchDashboardData, 30000);
+    setInterval(fetchDashboardData, 30000); // 30 segundos
 </script>
 </body>
 </html>
