@@ -237,22 +237,12 @@ def get_alertas_premium():
     canales = [
         {"nombre": "TIGO", "tabla": "mov_telecel"},
         {"nombre": "TIGO HOME", "tabla": "mov_multivision"},
-        {"nombre": "ENTEL SERVICIOS", "tabla": "mov_entelrec"},
+        {"nombre": "ENTEL RECARGA", "tabla": "mov_entelrec"},
         {"nombre": "NUEVATEL", "tabla": "mov_nuevatel"},
         {"nombre": "EPSAS", "tabla": "mov_epsas"}
     ]
     
     ORIGENES_DIGITALES_PREMIUM = "('APWS', 'LUKA', 'APMO', 'APWB', 'APWY', 'APWA')"
-    
-    query = " UNION ALL ".join([
-        f"SELECT '{c['nombre']}' AS canal, '{c['tabla']}' AS tabla, COUNT(*) AS tx_count "
-        f"FROM {c['tabla']} "
-        f"WHERE fecha = CURDATE() "
-        f"  AND hora >= SUBTIME(CURRENT_TIME(), '00:10:00') "
-        f"  AND UPPER(TRIM(estado)) = 'P' "
-        f"  AND UPPER(TRIM(origen)) IN {ORIGENES_DIGITALES_PREMIUM}"
-        for c in canales
-    ])
     
     respuesta = []
     
@@ -264,23 +254,43 @@ def get_alertas_premium():
         )
         
         with conn.cursor() as cursor:
+            # 1. Obtener la hora actual REAL de la BD para evitar desfases de Timezone
+            cursor.execute("SELECT CURRENT_TIME() AS hora_bd")
+            hora_bd = cursor.fetchone()["hora_bd"]
+            
+            # Convertir a string para usar en la consulta SQL de forma segura
+            hora_bd_str = str(hora_bd)
+
+            # 2. Consulta con la hora de la BD garantizada
+            query = " UNION ALL ".join([
+                f"SELECT '{c['nombre']}' AS canal, '{c['tabla']}' AS tabla, COUNT(*) AS tx_count "
+                f"FROM {c['tabla']} "
+                f"WHERE fecha = CURDATE() "
+                f"  AND hora >= SUBTIME('{hora_bd_str}', '00:10:00') "
+                f"  AND UPPER(TRIM(estado)) = 'P' "
+                f"  AND UPPER(TRIM(origen)) IN {ORIGENES_DIGITALES_PREMIUM}"
+                for c in canales
+            ])
+
             cursor.execute(query)
             resultados = cursor.fetchall()
             
             for row in resultados:
-                cant = row["tx_count"]
+                # Forzar conversión a entero por seguridad
+                cant = int(row["tx_count"]) if row["tx_count"] is not None else 0
+                
                 respuesta.append({
                     "canal": row["canal"],
                     "tabla": row["tabla"],
                     "tx_count": cant,
                     "tx_5min": cant,
-                    "alerta": cant == 0
+                    "alerta": bool(cant == 0) # Asegura retorno booleano estricto
                 })
                 
         conn.close()
         
     except Exception as e:
-        print(f"Error consultando alertas premium: {e}")
+        print(f"Error consultando alertas premium en PROD: {e}")
         return [
             {"canal": c["nombre"], "tabla": c["tabla"], "tx_count": 0, "tx_5min": 0, "alerta": True}
             for c in canales
