@@ -497,8 +497,11 @@
                 
                 if (contador) contador.innerText = conteo;
 
+               // Validar explícitamente si el conteo es 0 o si el flag de alerta viene en true
+                const estaEnZero = Number(conteo) === 0 || item.alerta;
+
                 if (tarjeta) {
-                    if (item.alerta) {
+                    if (estaEnZero) {
                         tarjeta.classList.add('alerta-critica-pulsante');
                         canalesConFalla.push(item.canal);
                     } else {
