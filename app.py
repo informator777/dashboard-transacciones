@@ -283,7 +283,7 @@ def get_monitoreo_clientes():
     
     TABLAS_EXCLUIDAS = [
         "mov_rentdig", 
-        "mov_sip", 
+        "mov_sipgp", 
         "mov_unibienes", 
         "mov_bja"
     ]
