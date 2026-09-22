@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monitoreo - Transacciones Digitales por Entidad</title>
-    <!-- Chart.js para renderizar los gráficos de series de tiempo -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
@@ -15,6 +14,7 @@
             --accent-green: #10b981;
             --accent-red: #ef4444;
             --border-color: #e2e8f0;
+            --primary-blue: #0284c7;
         }
 
         * {
@@ -35,12 +35,11 @@
             margin: 0 auto;
         }
 
-        /* Encabezado Principal */
         .top-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
         }
 
         .breadcrumbs {
@@ -79,7 +78,57 @@
             box-shadow: 0 0 8px var(--accent-green);
         }
 
-        /* Tarjetas KPI de Resumen */
+        /* NAVEGACIÓN PESTAÑAS (TABS) */
+        .tabs-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 12px;
+        }
+
+        .tab-buttons {
+            display: flex;
+            gap: 12px;
+        }
+
+        .tab-btn {
+            background: #e2e8f0;
+            color: #475569;
+            border: none;
+            padding: 10px 22px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .tab-btn.active {
+            background: var(--primary-blue);
+            color: #ffffff;
+            box-shadow: 0 2px 6px rgba(2, 132, 199, 0.3);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .search-box {
+            padding: 8px 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 0.85rem;
+            width: 280px;
+            outline: none;
+        }
+
+        /* KPIs */
         .kpi-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -119,7 +168,7 @@
             color: var(--accent-red);
         }
 
-        /* Sección Alertas Transacciones Premium */
+        /* PREMIUM & CLIENTES */
         .premium-section {
             background: var(--card-bg);
             border-radius: 12px;
@@ -142,15 +191,6 @@
             color: #0f172a;
         }
 
-        .premium-badge {
-            background: #e2e8f0;
-            color: #475569;
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-
         .btn-audio-status {
             cursor: pointer;
             border: none;
@@ -168,13 +208,13 @@
             color: #166534;
         }
 
-        .premium-grid {
+        .premium-grid, .clientes-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 15px;
         }
 
-        .premium-card {
+        .premium-card, .cliente-card {
             background: #ffffff;
             border: 1px solid var(--accent-green);
             border-radius: 10px;
@@ -183,23 +223,25 @@
             transition: all 0.3s ease;
         }
 
-        .premium-card-title {
+        .premium-card-title, .cliente-card-title {
             font-size: 0.8rem;
             font-weight: 700;
             color: var(--text-secondary);
             margin-bottom: 5px;
+            text-transform: uppercase;
         }
 
-        .premium-card-value {
-            font-size: 1.6rem;
+        .premium-card-value, .cliente-card-value {
+            font-size: 1.5rem;
             font-weight: 700;
             color: #0f172a;
             margin: 4px 0;
         }
 
-        .premium-card-sub {
+        .cliente-card-sub {
             font-size: 0.75rem;
-            color: var(--text-secondary);
+            font-weight: 600;
+            color: var(--accent-green);
         }
 
         @keyframes pulsoRojo {
@@ -214,35 +256,12 @@
             animation: pulsoRojo 1.5s infinite;
         }
 
-        /* Título de Sección */
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-end;
-            margin-bottom: 20px;
+        .alerta-critica-pulsante .cliente-card-sub, 
+        .alerta-critica-pulsante .premium-card-value {
+            color: var(--accent-red) !important;
         }
 
-        .section-title {
-            font-size: 1.3rem;
-            font-weight: 700;
-            margin-bottom: 4px;
-        }
-
-        .section-subtitle {
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-        }
-
-        .time-range-badge {
-            background: #e2e8f0;
-            padding: 6px 14px;
-            border-radius: 16px;
-            font-size: 0.8rem;
-            color: #475569;
-            font-family: monospace;
-        }
-
-        /* Grid de Dashboards de Entidades */
+        /* GRID ENTIDADES GENERAL */
         .dashboards-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(430px, 1fr));
@@ -255,7 +274,6 @@
             padding: 22px;
             border: 1px solid var(--border-color);
             box-shadow: 0 2px 5px rgba(0,0,0,0.03);
-            transition: border-color 0.3s ease, box-shadow 0.3s ease;
         }
 
         .entity-card-header {
@@ -265,32 +283,10 @@
             margin-bottom: 15px;
         }
 
-        .entity-name {
-            font-size: 1.2rem;
-            font-weight: 700;
-            color: #0f172a;
-        }
-
-        .entity-code {
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            font-family: monospace;
-        }
-
-        .entity-total-box {
-            text-align: right;
-        }
-
-        .entity-total {
-            font-size: 1.4rem;
-            font-weight: 700;
-            color: #0f172a;
-        }
-
-        .entity-total-label {
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-        }
+        .entity-name { font-size: 1.2rem; font-weight: 700; color: #0f172a; }
+        .entity-code { font-size: 0.75rem; color: var(--text-secondary); font-family: monospace; }
+        .entity-total { font-size: 1.4rem; font-weight: 700; color: #0f172a; }
+        .entity-total-label { font-size: 0.75rem; color: var(--text-secondary); }
 
         .chart-container {
             position: relative;
@@ -299,19 +295,9 @@
         }
 
         .card-alert {
-            animation: pulse-alert 1.5s infinite alternate;
+            animation: pulsoRojo 1.5s infinite;
             border-color: #ef4444 !important;
-        }
-
-        @keyframes pulse-alert {
-            0% {
-                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
-                background-color: #ffffff;
-            }
-            100% {
-                box-shadow: 0 0 20px 5px rgba(239, 68, 68, 0.25);
-                background-color: #fff5f5;
-            }
+            background-color: #fff5f5 !important;
         }
 
         .alert-badge-icon {
@@ -323,7 +309,6 @@
             border-radius: 4px;
             font-weight: 700;
             margin-left: 8px;
-            vertical-align: middle;
         }
     </style>
 </head>
@@ -341,94 +326,124 @@
         </div>
     </div>
 
-    <!-- KPIs Row -->
-    <div class="kpi-grid">
-        <div class="kpi-card">
-            <div class="kpi-title">Transacciones Trxs. (última hora)</div>
-            <div class="kpi-value" id="kpi-total-tx">0</div>
-            <div class="kpi-subtext" id="kpi-tx-growth">+0% vs. hora anterior</div>
+    <!-- PESTAÑAS (TABS) -->
+    <div class="tabs-header">
+        <div class="tab-buttons">
+            <button class="tab-btn active" onclick="switchTab('general')">Monitoreo General</button>
+            <button class="tab-btn" onclick="switchTab('clientes')">Monitoreo Clientes (100+)</button>
         </div>
-        <div class="kpi-card">
-            <div class="kpi-title">Entidades monitoreadas</div>
-            <div class="kpi-value" id="kpi-total-entities">0</div>
-            <div class="kpi-subtext" style="color: var(--text-secondary);">Sin cambios</div>
-        </div>
-        <div class="kpi-card">
-            <div class="kpi-title">Servicio con mayor volumen</div>
-            <div class="kpi-value" id="kpi-top-service" style="font-size: 1.4rem;">---</div>
-            <div class="kpi-subtext" id="kpi-top-service-sub">liderando la red</div>
-        </div>
-        <div class="kpi-card">
-            <div class="kpi-title">Alertas activas (>1h sin Trxs)</div>
-            <div class="kpi-value" id="kpi-alerts-count">0</div>
-            <div class="kpi-subtext alert-text" id="kpi-alerts-detail">Sin caídas de servicio</div>
-        </div>
-        <div class="kpi-card">
-            <div class="kpi-title">Orígenes Monitoreados</div>
-            <div class="kpi-value" style="font-size: 0.9rem; margin-top: 10px;">APWS-APMO-APWA</div>
-            <div class="kpi-subtext" style="color: var(--text-secondary);">APWB-APWY-LUKA</div>
-        </div>
-    </div>
-
-    <!-- Sección Alertas Transacciones Premium -->
-    <div class="premium-section">
-        <div class="premium-header">
-            <div class="premium-title">Clientes sin transacciones digitales (LUKA-Banca Digital) últimos 5 minutos</div>
-            <div style="display: flex; gap: 10px; align-items: center;">
-                <button id="btn-probar-audio" onclick="probarAudioManual()" class="btn-audio-status">
-                    🔇 Clic aquí para activar audio
-                </button>
-                <span class="premium-badge">Sincronización: 5 min</span>
-            </div>
-        </div>
-
-        <div class="premium-grid" id="contenedor-alertas-premium">
-            <div id="card-mov_telecel" class="premium-card">
-                <div class="premium-card-title">TIGO</div>
-                <div id="tx-mov_telecel" class="premium-card-value">0</div>
-                <div class="premium-card-sub">tx / 5m</div>
-            </div>
-            <div id="card-mov_multivision" class="premium-card">
-                <div class="premium-card-title">TIGO HOME</div>
-                <div id="tx-mov_multivision" class="premium-card-value">0</div>
-                <div class="premium-card-sub">tx / 5m</div>
-            </div>
-            <div id="card-mov_entelrec" class="premium-card">
-                <div class="premium-card-title">ENTEL RECARGA</div>
-                <div id="tx-mov_entelrec" class="premium-card-value">0</div>
-                <div class="premium-card-sub">tx / 5m</div>
-            </div>
-            <div id="card-mov_nuevatel" class="premium-card">
-                <div class="premium-card-title">NUEVATEL</div>
-                <div id="tx-mov_nuevatel" class="premium-card-value">0</div>
-                <div class="premium-card-sub">tx / 5m</div>
-            </div>
-            <div id="card-mov_epsas" class="premium-card">
-                <div class="premium-card-title">EPSAS</div>
-                <div id="tx-mov_epsas" class="premium-card-value">0</div>
-                <div class="premium-card-sub">tx / 5m</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Título de Sección -->
-    <div class="section-header">
         <div>
-            <h2 class="section-title">Detalle por entidad</h2>
-            <div class="section-subtitle">Hasta 5 servicios por gráfico • serie de tiempo, última hora</div>
+            <button id="btn-probar-audio" onclick="probarAudioManual()" class="btn-audio-status">
+                🔇 Clic aquí para activar audio
+            </button>
         </div>
-        <div class="time-range-badge" id="time-range-text">actualiza cada 15s</div>
     </div>
 
-    <!-- Contenedor dinámico para los Dashboards de Entidades -->
-    <div class="dashboards-grid" id="dashboards-container"></div>
+    <!-- TAB 1: MONITOREO GENERAL -->
+    <div id="tab-general" class="tab-content active">
+        <!-- KPIs Row -->
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-title">Transacciones Trxs. (última hora)</div>
+                <div class="kpi-value" id="kpi-total-tx">0</div>
+                <div class="kpi-subtext" id="kpi-tx-growth">+0% vs. hora anterior</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">Entidades monitoreadas</div>
+                <div class="kpi-value" id="kpi-total-entities">0</div>
+                <div class="kpi-subtext" style="color: var(--text-secondary);">Sin cambios</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">Servicio con mayor volumen</div>
+                <div class="kpi-value" id="kpi-top-service" style="font-size: 1.4rem;">---</div>
+                <div class="kpi-subtext" id="kpi-top-service-sub">liderando la red</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">Alertas activas (>1h sin Trxs)</div>
+                <div class="kpi-value" id="kpi-alerts-count">0</div>
+                <div class="kpi-subtext alert-text" id="kpi-alerts-detail">Sin caídas de servicio</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-title">Orígenes Monitoreados</div>
+                <div class="kpi-value" style="font-size: 0.9rem; margin-top: 10px;">APWS-APMO-APWA</div>
+                <div class="kpi-subtext" style="color: var(--text-secondary);">APWB-APWY-LUKA</div>
+            </div>
+        </div>
+
+        <!-- Alertas Premium -->
+        <div class="premium-section">
+            <div class="premium-header">
+                <div class="premium-title">Clientes sin transacciones digitales (LUKA-Banca Digital) últimos 5 minutos</div>
+            </div>
+            <div class="premium-grid" id="contenedor-alertas-premium">
+                <div id="card-mov_telecel" class="premium-card">
+                    <div class="premium-card-title">TIGO</div>
+                    <div id="tx-mov_telecel" class="premium-card-value">0</div>
+                    <div class="premium-card-sub">tx / 5m</div>
+                </div>
+                <div id="card-mov_multivision" class="premium-card">
+                    <div class="premium-card-title">TIGO HOME</div>
+                    <div id="tx-mov_multivision" class="premium-card-value">0</div>
+                    <div class="premium-card-sub">tx / 5m</div>
+                </div>
+                <div id="card-mov_entelrec" class="premium-card">
+                    <div class="premium-card-title">ENTEL RECARGA</div>
+                    <div id="tx-mov_entelrec" class="premium-card-value">0</div>
+                    <div class="premium-card-sub">tx / 5m</div>
+                </div>
+                <div id="card-mov_nuevatel" class="premium-card">
+                    <div class="premium-card-title">NUEVATEL</div>
+                    <div id="tx-mov_nuevatel" class="premium-card-value">0</div>
+                    <div class="premium-card-sub">tx / 5m</div>
+                </div>
+                <div id="card-mov_epsas" class="premium-card">
+                    <div class="premium-card-title">EPSAS</div>
+                    <div id="tx-mov_epsas" class="premium-card-value">0</div>
+                    <div class="premium-card-sub">tx / 5m</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="dashboards-grid" id="dashboards-container"></div>
+    </div>
+
+    <!-- TAB 2: CLIENTES 100+ -->
+    <div id="tab-clientes" class="tab-content">
+        <div class="premium-section">
+            <div class="premium-header">
+                <div class="premium-title">Estado de Transacciones por Cliente (Vigentes)</div>
+                <input type="text" id="buscar-cliente" class="search-box" placeholder="Buscar cliente..." onkeyup="filtrarClientesUI()">
+            </div>
+            <div class="clientes-grid" id="contenedor-clientes-100">
+                <!-- Se renderizan dinámicamente -->
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
     let audioHabilitado = false;
     let listaVoces = [];
+    let currentTab = 'general';
+    let cacheClientes = [];
 
-    // Cargar la lista de voces de forma asíncrona
+    function switchTab(tabName) {
+        currentTab = tabName;
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+        if (tabName === 'general') {
+            document.querySelectorAll('.tab-btn')[0].classList.add('active');
+            document.getElementById('tab-general').classList.add('active');
+            fetchDashboardData();
+            verificarAlertasPremium();
+        } else {
+            document.querySelectorAll('.tab-btn')[1].classList.add('active');
+            document.getElementById('tab-clientes').classList.add('active');
+            fetchClientesData();
+        }
+    }
+
     function cargarVoces() {
         if ('speechSynthesis' in window) {
             listaVoces = window.speechSynthesis.getVoices();
@@ -440,29 +455,20 @@
         cargarVoces();
     }
 
-    // Función principal para reproducir mensajes por voz
     function hablarAlerta(mensaje) {
-        if (!('speechSynthesis' in window)) return;
-
-        window.speechSynthesis.cancel(); // Detener audios anteriores
+        if (!('speechSynthesis' in window) || !audioHabilitado) return;
+        window.speechSynthesis.cancel();
 
         const utterance = new SpeechSynthesisUtterance(mensaje);
         utterance.lang = 'es-ES';
         utterance.rate = 0.9;
-        utterance.pitch = 1.0;
-        utterance.volume = 1.0;
-
-        // Seleccionar una voz nativa en español
         if (listaVoces.length === 0) cargarVoces();
         const vozEspanol = listaVoces.find(v => v.lang.startsWith('es'));
-        if (vozEspanol) {
-            utterance.voice = vozEspanol;
-        }
+        if (vozEspanol) utterance.voice = vozEspanol;
 
         window.speechSynthesis.speak(utterance);
     }
 
-    // Activar audio con interacción del usuario
     function activarAudioUsuario() {
         if (!audioHabilitado) {
             audioHabilitado = true;
@@ -481,23 +487,18 @@
         hablarAlerta("Prueba de audio exitosa. El sistema de alertas por voz está activo.");
     }
 
-    // Consultar alertas premium desde el backend
     async function verificarAlertasPremium() {
         try {
             const response = await fetch('/api/v1/alertas-premium');
             const data = await response.json();
-            
             let canalesConFalla = [];
 
             data.forEach(item => {
                 const tarjeta = document.getElementById(`card-${item.tabla}`);
                 const contador = document.getElementById(`tx-${item.tabla}`);
-                
                 const conteo = (item.tx_count !== undefined) ? item.tx_count : item.tx_5min;
                 
                 if (contador) contador.innerText = conteo;
-
-               // Validar explícitamente si el conteo es 0 o si el flag de alerta viene en true
                 const estaEnZero = Number(conteo) === 0 || item.alerta;
 
                 if (tarjeta) {
@@ -510,27 +511,71 @@
                 }
             });
 
-            // Si hay canales sin transacciones, emitir voz
-            if (canalesConFalla.length > 0) {
-                const listaCanales = canalesConFalla.join(', ');
-                hablarAlerta(`Atención: Alerta crítica. Sin transacciones digitales en los últimos 5 minutos en: ${listaCanales}`);
+            if (canalesConFalla.length > 0 && currentTab === 'general') {
+                hablarAlerta(`Atención: Alerta crítica en: ${canalesConFalla.join(', ')}`);
             }
-
         } catch (error) {
-            console.error("Error al obtener Alertas Premium:", error);
+            console.error("Error Alertas Premium:", error);
         }
     }
 
-    // Mapeo de colores fijos
+    async function fetchClientesData() {
+    const container = document.getElementById('contenedor-clientes-100');
+    if (cacheClientes.length === 0) {
+        container.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding: 20px; color:#64748b;">Cargando clientes...</div>';
+    }
+
+    try {
+        const response = await fetch('/api/v1/monitoreo-clientes');
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        cacheClientes = data;
+        renderClientesUI(data);
+    } catch (error) {
+        console.error("Error Clientes 100+:", error);
+        container.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding: 20px; color:#ef4444;">Error consultando datos de clientes.</div>';
+    }
+    }
+
+
+    function renderClientesUI(lista) {
+        const container = document.getElementById('contenedor-clientes-100');
+        container.innerHTML = '';
+        let alertasClientes = [];
+
+        lista.forEach(cli => {
+            const card = document.createElement('div');
+            card.className = `cliente-card ${cli.alerta ? 'alerta-critica-pulsante' : ''}`;
+            
+            if (cli.alerta) alertasClientes.push(cli.descripcion);
+
+            card.innerHTML = `
+                <div class="cliente-card-title">${cli.descripcion}</div>
+                <div class="cliente-card-value">${cli.ultima_hora}</div>
+                <div class="cliente-card-sub">${cli.mensaje}</div>
+            `;
+            container.appendChild(card);
+        });
+
+        if (alertasClientes.length > 0 && currentTab === 'clientes') {
+            hablarAlerta(`Atención: Hay ${alertasClientes.length} clientes en alerta de inactividad.`);
+        }
+    }
+
+    function filtrarClientesUI() {
+        const query = document.getElementById('buscar-cliente').value.toLowerCase();
+        const filtrados = cacheClientes.filter(c => 
+            c.descripcion.toLowerCase().includes(query) || 
+            c.cod_cliente.toLowerCase().includes(query)
+        );
+        renderClientesUI(filtrados);
+    }
+
     const MAPA_COLORES_SERVICIOS = {
-        "NUEVATEL": "#51E400",
-        "TIGO HOME": "#3b82f6",
-        "TELECEL": "#032766",
-        "AXS": "#ef4444",
-        "TUVES": "#8b5cf6",
-        "ENTEL SERVICIOS": "#FF2C2C",
-        "YANBAL": "#ec4899",
-        "HERBALIFE": "#059669"
+        "NUEVATEL": "#51E400", "TIGO HOME": "#3b82f6", "TELECEL": "#032766",
+        "AXS": "#ef4444", "TUVES": "#8b5cf6", "ENTEL SERVICIOS": "#FF2C2C",
+        "YANBAL": "#ec4899", "HERBALIFE": "#059669"
     };
 
     function obtenerColorServicio(nombreServicio) {
@@ -543,11 +588,10 @@
         try {
             const response = await fetch('/api/v1/monitoreo');
             const data = await response.json();
-            
             updateKPIs(data.resumen, data.entidades);
             renderEntities(data.entidades);
         } catch (error) {
-            console.error("Error consultando la API:", error);
+            console.error("Error API Monitoreo:", error);
         }
     }
 
@@ -636,10 +680,7 @@
             });
 
             const ctx = document.getElementById(canvasId).getContext('2d');
-            
-            if (chartInstances[canvasId]) {
-                chartInstances[canvasId].destroy();
-            }
+            if (chartInstances[canvasId]) chartInstances[canvasId].destroy();
 
             chartInstances[canvasId] = new Chart(ctx, {
                 type: 'line',
@@ -650,8 +691,7 @@
                     interaction: { mode: 'index', intersect: false },
                     plugins: {
                         legend: {
-                            display: true,
-                            position: 'bottom',
+                            display: true, position: 'bottom',
                             labels: { boxWidth: 8, usePointStyle: true, font: { size: 10 } }
                         },
                         tooltip: { enabled: true }
@@ -665,12 +705,18 @@
         });
     }
 
-    // Inicializaciones y temporizadores
-    setTimeout(verificarAlertasPremium, 800);
-    setInterval(verificarAlertasPremium, 300000); // 5 minutos
-
+    // Inicializaciones
+    verificarAlertasPremium();
     fetchDashboardData();
-    setInterval(fetchDashboardData, 30000); // 30 segundos
+
+    setInterval(() => {
+        if (currentTab === 'general') {
+            verificarAlertasPremium();
+            fetchDashboardData();
+        } else {
+            fetchClientesData();
+        }
+    }, 15000);
 </script>
 </body>
 </html>

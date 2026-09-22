@@ -22,7 +22,6 @@ ENTIDADES_MAP = {
     "0004": "BISA",
     "5006": "ECOFUTURO",
     "9065": "DIACONIA"
-    
 }
 
 TABLAS_ESPECIFICAS = [
@@ -37,17 +36,10 @@ TABLAS_ESPECIFICAS = [
 ORIGENES_PERMITIDOS = "('APWS', 'APWG', 'APWA', 'APWY', 'APWB', 'APMO', 'LUKA')"
 CODS_ENTIDADES_MIX = "('1005', '0009', '0008', '0004', '5006', '9065', '1017', '0035', '0304')"
 
-# Mapeo limpio directo a 4 dígitos con comas sintácticamente correctas
 MAPPING_COD_CLEAN = {
-    "1005": "1005",
-    "0009": "0009",
-    "0008": "0008",
-    "0004": "0004",
-    "5006": "5006",
-    "9065": "9065",
-    "0304": "0304",
-    "1017": "1017",
-    "0035": "0035"
+    "1005": "1005", "0009": "0009", "0008": "0008",
+    "0004": "0004", "5006": "5006", "9065": "9065",
+    "0304": "0304", "1017": "1017", "0035": "0035"
 }
 
 def obtener_estructura_base():
@@ -81,7 +73,6 @@ def consultar_base_datos():
         )
         cursor = conn.cursor()
 
-        # Obtener la fecha/hora exacta desde el servidor MySQL
         cursor.execute("SELECT NOW()")
         db_now = cursor.fetchone()[0]
         ahora_dt = db_now if isinstance(db_now, datetime) else datetime.now()
@@ -168,16 +159,9 @@ def consultar_base_datos():
                 for m in ultimos_60_min:
                     val = s_data["puntos"].get(m, 0)
                     puntos_list.append({
-                        "minuto": m,
-                        "hora": m,
-                        "time": m,
-                        "x": m,
-                        "total": val,
-                        "cant": val,
-                        "cantidad": val,
-                        "count": val,
-                        "y": val,
-                        "valor": val
+                        "minuto": m, "hora": m, "time": m, "x": m,
+                        "total": val, "cant": val, "cantidad": val,
+                        "count": val, "y": val, "valor": val
                     })
 
                 top_formatted.append({
@@ -244,7 +228,6 @@ def get_alertas_premium():
     
     ORIGENES_DIGITALES_PREMIUM = "('APWS', 'LUKA', 'APMO', 'APWB', 'APWY', 'APWA')"
     
-    # Consulta robusta evaluando fecha + hora unificadas contra el tiempo del servidor (NOW())
     query = " UNION ALL ".join([
         f"SELECT '{c['nombre']}' AS canal, '{c['tabla']}' AS tabla, "
         f"COALESCE(COUNT(*), 0) AS tx_count "
@@ -290,3 +273,110 @@ def get_alertas_premium():
         ]
         
     return respuesta
+
+# ------------------------------------------------------------------
+# NUEVO ENDPOINT OPTIMIZADO: MONITOREO CLIENTES (100+)
+# ------------------------------------------------------------------
+@app.get("/api/v1/monitoreo-clientes")
+def get_monitoreo_clientes():
+    resultado_clientes = []
+    
+    TABLAS_EXCLUIDAS = [
+        "mov_rentdig", 
+        "mov_sip", 
+        "mov_unibienes", 
+        "mov_bja"
+    ]
+
+    try:
+        conn = pymysql.connect(
+            host=DB_HOST, user=DB_USER, password=DB_PASS, database=DB_NAME,
+            connect_timeout=5, read_timeout=10, cursorclass=pymysql.cursors.DictCursor
+        )
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT NOW() AS ahora")
+        db_now = cursor.fetchone()["ahora"]
+        ahora_dt = db_now if isinstance(db_now, datetime) else datetime.now()
+
+        # 📌 CORRECCIÓN: 'cliente' en singular
+        cursor.execute("SELECT cod_cliente, descripcion, tabla FROM cliente WHERE UPPER(TRIM(estado)) = 'V'")
+        clientes_vigentes = cursor.fetchall()
+
+        for cli in clientes_vigentes:
+            nombre_cli = cli.get("descripcion") or cli.get("cod_cliente") or "Sin Nombre"
+            tabla_raw = str(cli.get("tabla") or "").strip().lower()
+
+            if not tabla_raw:
+                continue
+
+            tabla_cli = tabla_raw if tabla_raw.startswith("mov_") else f"mov_{tabla_raw}"
+
+            if tabla_cli in TABLAS_EXCLUIDAS:
+                resultado_clientes.append({
+                    "cod_cliente": str(cli["cod_cliente"]),
+                    "descripcion": str(nombre_cli),
+                    "tabla": tabla_cli,
+                    "ultima_hora": "--:--:--",
+                    "tx_hoy": 0,
+                    "alerta": False,
+                    "mensaje": "OMITIDO POR TAMAÑO"
+                })
+                continue
+
+            # Consulta hiper-optimizada con LIMIT 1
+            query_cli = f"""
+                SELECT DATE_FORMAT(hora, '%H:%i:%s') AS ultima_hora
+                FROM {tabla_cli}
+                WHERE fecha = CURDATE() AND UPPER(TRIM(estado)) = 'P'
+                ORDER BY hora DESC
+                LIMIT 1
+            """
+
+            try:
+                cursor.execute(query_cli)
+                row = cursor.fetchone()
+                hora_str = row["ultima_hora"] if row and row["ultima_hora"] else None
+
+                alerta = False
+                mensaje_estado = "OK"
+
+                if not hora_str:
+                    alerta = True
+                    mensaje_estado = "SIN TRANSACCIONES"
+                    hora_str = "--:--:--"
+                else:
+                    dt_ultima = datetime.strptime(f"{ahora_dt.strftime('%Y-%m-%d')} {hora_str}", "%Y-%m-%d %H:%M:%S")
+                    diferencia_seg = (ahora_dt - dt_ultima).total_seconds()
+
+                    if diferencia_seg > 3600:
+                        alerta = True
+                        mensaje_estado = "SIN TRANSACCIONES ÚLTIMA HORA"
+
+                resultado_clientes.append({
+                    "cod_cliente": str(cli["cod_cliente"]),
+                    "descripcion": str(nombre_cli),
+                    "tabla": tabla_cli,
+                    "ultima_hora": hora_str,
+                    "tx_hoy": 1 if hora_str != "--:--:--" else 0,
+                    "alerta": alerta,
+                    "mensaje": mensaje_estado
+                })
+
+            except Exception:
+                resultado_clientes.append({
+                    "cod_cliente": str(cli["cod_cliente"]),
+                    "descripcion": str(nombre_cli),
+                    "tabla": tabla_cli,
+                    "ultima_hora": "--:--:--",
+                    "tx_hoy": 0,
+                    "alerta": True,
+                    "mensaje": "SIN TABLA / INACTIVO"
+                })
+
+        conn.close()
+
+    except Exception as e:
+        print(f"Error consultando monitoreo de clientes: {e}")
+
+    return resultado_clientes
