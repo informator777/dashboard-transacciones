@@ -3,7 +3,7 @@ import threading
 import time
 from datetime import datetime, timedelta
 from typing import List
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 import pymysql
 
@@ -13,15 +13,9 @@ DB_PASS = "datawpassword"
 DB_NAME = "Dataw"
 
 ENTIDADES_MAP = {
-    "0304": "LUKA",
-    "1005": "BCP",
-    "1017": "BANCO SOL",
-    "0035": "BANCO GANADERO",
-    "0009": "BMSC",
-    "0008": "BNB",
-    "0004": "BISA",
-    "5006": "ECOFUTURO",
-    "9065": "DIACONIA"
+    "0304": "LUKA", "1005": "BCP", "1017": "BANCO SOL",
+    "0035": "BANCO GANADERO", "0009": "BMSC", "0008": "BNB",
+    "0004": "BISA", "5006": "ECOFUTURO", "9065": "DIACONIA"
 }
 
 TABLAS_ESPECIFICAS = [
@@ -274,19 +268,11 @@ def get_alertas_premium():
         
     return respuesta
 
-# ------------------------------------------------------------------
-# NUEVO ENDPOINT OPTIMIZADO: MONITOREO CLIENTES (100+)
-# ------------------------------------------------------------------
 @app.get("/api/v1/monitoreo-clientes")
 def get_monitoreo_clientes():
     resultado_clientes = []
     
-    TABLAS_EXCLUIDAS = [
-        "mov_rentdig", 
-        "mov_sipgp", 
-        "mov_unibienes", 
-        "mov_bja"
-    ]
+    TABLAS_EXCLUIDAS = ["mov_rentdig", "mov_sip", "mov_unibienes", "mov_bja"]
 
     try:
         conn = pymysql.connect(
@@ -299,7 +285,6 @@ def get_monitoreo_clientes():
         db_now = cursor.fetchone()["ahora"]
         ahora_dt = db_now if isinstance(db_now, datetime) else datetime.now()
 
-        # 📌 CORRECCIÓN: 'cliente' en singular
         cursor.execute("SELECT cod_cliente, descripcion, tabla FROM cliente WHERE UPPER(TRIM(estado)) = 'V'")
         clientes_vigentes = cursor.fetchall()
 
@@ -319,12 +304,11 @@ def get_monitoreo_clientes():
                     "tabla": tabla_cli,
                     "ultima_hora": "--:--:--",
                     "tx_hoy": 0,
-                    "alerta": False,
+                    "color_estado": "VERDE",
                     "mensaje": "OMITIDO POR TAMAÑO"
                 })
                 continue
 
-            # Consulta hiper-optimizada con LIMIT 1
             query_cli = f"""
                 SELECT DATE_FORMAT(hora, '%H:%i:%s') AS ultima_hora
                 FROM {tabla_cli}
@@ -338,20 +322,20 @@ def get_monitoreo_clientes():
                 row = cursor.fetchone()
                 hora_str = row["ultima_hora"] if row and row["ultima_hora"] else None
 
-                alerta = False
-                mensaje_estado = "OK"
-
                 if not hora_str:
-                    alerta = True
-                    mensaje_estado = "SIN TRANSACCIONES"
+                    color_estado = "ROJO"
+                    mensaje_estado = "SIN TRANSACCIONES HOY"
                     hora_str = "--:--:--"
                 else:
                     dt_ultima = datetime.strptime(f"{ahora_dt.strftime('%Y-%m-%d')} {hora_str}", "%Y-%m-%d %H:%M:%S")
                     diferencia_seg = (ahora_dt - dt_ultima).total_seconds()
 
-                    if diferencia_seg > 3600:
-                        alerta = True
-                        mensaje_estado = "SIN TRANSACCIONES ÚLTIMA HORA"
+                    if diferencia_seg <= 3600:
+                        color_estado = "VERDE"
+                        mensaje_estado = "OK"
+                    else:
+                        color_estado = "NARANJA"
+                        mensaje_estado = "SIN TX ÚLTIMA HORA"
 
                 resultado_clientes.append({
                     "cod_cliente": str(cli["cod_cliente"]),
@@ -359,7 +343,7 @@ def get_monitoreo_clientes():
                     "tabla": tabla_cli,
                     "ultima_hora": hora_str,
                     "tx_hoy": 1 if hora_str != "--:--:--" else 0,
-                    "alerta": alerta,
+                    "color_estado": color_estado,
                     "mensaje": mensaje_estado
                 })
 
@@ -370,7 +354,7 @@ def get_monitoreo_clientes():
                     "tabla": tabla_cli,
                     "ultima_hora": "--:--:--",
                     "tx_hoy": 0,
-                    "alerta": True,
+                    "color_estado": "ROJO",
                     "mensaje": "SIN TABLA / INACTIVO"
                 })
 
@@ -380,3 +364,149 @@ def get_monitoreo_clientes():
         print(f"Error consultando monitoreo de clientes: {e}")
 
     return resultado_clientes
+
+@app.get("/api/v1/canales")
+def obtener_lista_canales():
+    canales = []
+    try:
+        conn = pymysql.connect(
+            host=DB_HOST, user=DB_USER, password=DB_PASS, database=DB_NAME,
+            connect_timeout=5, read_timeout=10, cursorclass=pymysql.cursors.DictCursor
+        )
+        cursor = conn.cursor()
+        cursor.execute("SELECT cod_entidad, descripcion FROM entidad ORDER BY descripcion ASC")
+        rows = cursor.fetchall()
+        for r in rows:
+            canales.append({
+                "cod_entidad": str(r["cod_entidad"]),
+                "descripcion": str(r["descripcion"])
+            })
+        conn.close()
+    except Exception as e:
+        print(f"Error consultando catalogo de entidades: {e}")
+    return canales
+
+def clasificar_origen_sql(col_origen="origen"):
+    return f"""
+        CASE 
+            WHEN UPPER(TRIM({col_origen})) IN ('APWS', 'APMO', 'APWY', 'APWB', 'APWA') THEN 'Banca Digital'
+            WHEN UPPER(TRIM({col_origen})) = 'LUKA' THEN 'LUKA'
+            WHEN UPPER(TRIM({col_origen})) = 'APME' THEN 'Mediador'
+            WHEN UPPER(TRIM({col_origen})) IN ('APTE', 'APWE') THEN 'Físico'
+            WHEN UPPER(TRIM({col_origen})) IN ('GSEF', 'GSIS', 'GSQN', 'GSTC') THEN 'GenesisWeb'
+            WHEN UPPER(TRIM({col_origen})) IN ('APMP', 'MREF') THEN 'Multired'
+            WHEN UPPER(TRIM({col_origen})) LIKE 'MC%' OR UPPER(TRIM({col_origen})) LIKE 'MW%' 
+                 OR UPPER(TRIM({col_origen})) LIKE 'ME%' OR UPPER(TRIM({col_origen})) LIKE 'MR%' THEN 'Mis Cuentas'
+            WHEN UPPER(TRIM({col_origen})) LIKE 'SP%' OR UPPER(TRIM({col_origen})) LIKE 'MS%' THEN 'Suite de Pagos'
+            WHEN UPPER(TRIM({col_origen})) IN ('APEF', 'APIF') THEN 'Otros'
+            ELSE 'Otros'
+        END
+    """
+
+@app.get("/api/v1/monitoreo-canal")
+def get_monitoreo_canal(
+    cod_entidad: str = Query(..., description="Código de entidad/banco"),
+    fecha_inicio: str = Query(..., description="YYYY-MM-DD"),
+    fecha_fin: str = Query(..., description="YYYY-MM-DD"),
+    hora_inicio: str = Query("00:00", description="HH:MM"),
+    hora_fin: str = Query("23:59", description="HH:MM")
+):
+    CATEGORIAS = [
+        'Banca Digital', 'LUKA', 'Mediador', 'Físico',
+        'GenesisWeb', 'Multired', 'Mis Cuentas', 'Suite de Pagos', 'Otros'
+    ]
+
+    try:
+        dt_ini = datetime.strptime(fecha_inicio, "%Y-%m-%d")
+        dt_fin = datetime.strptime(fecha_fin, "%Y-%m-%d")
+        if (dt_fin - dt_ini).days > 14:
+            dt_fin = dt_ini + timedelta(days=14)
+            fecha_fin = dt_fin.strftime("%Y-%m-%d")
+    except Exception:
+        pass
+
+    TABLAS_EXCLUIDAS = ["mov_rentdig", "mov_sip", "mov_unibienes", "mov_bja"]
+
+    marcas_tiempo = []
+    curr_dt = dt_ini
+    h_ini_int = int(hora_inicio.split(":")[0])
+    h_fin_int = int(hora_fin.split(":")[0])
+
+    while curr_dt <= dt_fin:
+        for h in range(0, 24):
+            if h_ini_int <= h <= h_fin_int:
+                marcas_tiempo.append(f"{curr_dt.strftime('%Y-%m-%d')} {h:02d}:00")
+        curr_dt += timedelta(days=1)
+
+    matriz_datos = {m: {cat: 0 for cat in CATEGORIAS} for m in marcas_tiempo}
+    
+    # 📌 ESTRUCTURA DE DESGROSE DE CLIENTES POR MARCA DE TIEMPO Y TIPO DE ORIGEN
+    desglose_clientes = {m: {cat: {} for cat in CATEGORIAS} for m in marcas_tiempo}
+
+    try:
+        conn = pymysql.connect(
+            host=DB_HOST, user=DB_USER, password=DB_PASS, database=DB_NAME,
+            connect_timeout=5, read_timeout=15, cursorclass=pymysql.cursors.DictCursor
+        )
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT cod_cliente, descripcion, tabla FROM cliente WHERE UPPER(TRIM(estado)) = 'V'")
+        tablas_rows = cursor.fetchall()
+
+        case_sql = clasificar_origen_sql("origen")
+
+        for row_t in tablas_rows:
+            t_raw = str(row_t.get("tabla") or "").strip().lower()
+            if not t_raw: continue
+            tabla_name = t_raw if t_raw.startswith("mov_") else f"mov_{t_raw}"
+            
+            nombre_cliente = str(row_t.get("descripcion") or row_t.get("cod_cliente") or "Cliente").strip()
+
+            if tabla_name in TABLAS_EXCLUIDAS: continue
+
+            query = f"""
+                SELECT 
+                    DATE_FORMAT(ADDTIME(CAST(fecha AS DATETIME), hora), '%Y-%m-%d %H:00') AS fecha_hora,
+                    {case_sql} AS grupo_origen,
+                    COUNT(*) AS total
+                FROM {tabla_name}
+                WHERE fecha BETWEEN '{fecha_inicio}' AND '{fecha_fin}'
+                  AND hora BETWEEN '{hora_inicio}:00' AND '{hora_fin}:59'
+                  AND UPPER(TRIM(estado)) = 'P'
+                  AND CAST(cod_entidad AS CHAR) = '{cod_entidad}'
+                GROUP BY fecha_hora, grupo_origen;
+            """
+            try:
+                cursor.execute(query)
+                res = cursor.fetchall()
+                for r in res:
+                    fh = r["fecha_hora"]
+                    grp = r["grupo_origen"]
+                    tot = int(r["total"])
+
+                    if fh in matriz_datos and grp in matriz_datos[fh]:
+                        matriz_datos[fh][grp] += tot
+                        
+                        # Guardar desglose por cliente
+                        if nombre_cliente not in desglose_clientes[fh][grp]:
+                            desglose_clientes[fh][grp][nombre_cliente] = 0
+                        desglose_clientes[fh][grp][nombre_cliente] += tot
+
+            except Exception as ex_t:
+                continue
+
+        conn.close()
+
+    except Exception as e:
+        print(f"Error consultando monitoreo canal: {e}")
+
+    series = {cat: [] for cat in CATEGORIAS}
+    for m in marcas_tiempo:
+        for cat in CATEGORIAS:
+            series[cat].append(matriz_datos[m][cat])
+
+    return {
+        "marcas_tiempo": marcas_tiempo,
+        "series": series,
+        "desglose_clientes": desglose_clientes
+    }

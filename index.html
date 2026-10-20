@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitoreo - Transacciones Digitales por Entidad</title>
+    <title>Monitoreo Transaccional DATAW</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
@@ -13,6 +13,7 @@
             --text-secondary: #64748b;
             --accent-green: #10b981;
             --accent-red: #ef4444;
+            --accent-orange: #f97316;
             --border-color: #e2e8f0;
             --primary-blue: #0284c7;
         }
@@ -208,6 +209,25 @@
             color: #166534;
         }
 
+        .btn-filtro-rojo {
+            background-color: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-filtro-rojo.activo {
+            background-color: #ef4444;
+            color: #ffffff;
+            border-color: #dc2626;
+            box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);
+        }
+
         .premium-grid, .clientes-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -244,6 +264,23 @@
             color: var(--accent-green);
         }
 
+        .tarjeta-naranja {
+            border: 2px solid #f97316 !important;
+            background-color: #fff7ed !important;
+        }
+        .tarjeta-naranja .cliente-card-sub, .tarjeta-naranja .cliente-card-value {
+            color: #c2410c !important;
+        }
+
+        .tarjeta-roja {
+            border: 2px solid var(--accent-red) !important;
+            background-color: #fff5f5 !important;
+            animation: pulsoRojo 1.5s infinite;
+        }
+        .tarjeta-roja .cliente-card-sub, .tarjeta-roja .cliente-card-value {
+            color: var(--accent-red) !important;
+        }
+
         @keyframes pulsoRojo {
             0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
             70% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
@@ -256,12 +293,72 @@
             animation: pulsoRojo 1.5s infinite;
         }
 
-        .alerta-critica-pulsante .cliente-card-sub, 
-        .alerta-critica-pulsante .premium-card-value {
-            color: var(--accent-red) !important;
+        /* TAB 3: MONITOREO CANAL FILTROS Y GRÁFICO */
+        .channel-filter-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: flex-end;
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 25px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
         }
 
-        /* GRID ENTIDADES GENERAL */
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .filter-label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .filter-input {
+            padding: 9px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 0.85rem;
+            outline: none;
+            background: #ffffff;
+        }
+
+        .btn-consultar {
+            background-color: var(--primary-blue);
+            color: #ffffff;
+            border: none;
+            padding: 10px 22px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-consultar:hover {
+            background-color: #0369a1;
+        }
+
+        .channel-chart-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 25px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+
+        .channel-chart-container {
+            position: relative;
+            height: 480px;
+            width: 100%;
+        }
+
         .dashboards-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(430px, 1fr));
@@ -292,12 +389,6 @@
             position: relative;
             height: 200px;
             width: 100%;
-        }
-
-        .card-alert {
-            animation: pulsoRojo 1.5s infinite;
-            border-color: #ef4444 !important;
-            background-color: #fff5f5 !important;
         }
 
         .alert-badge-icon {
@@ -331,6 +422,7 @@
         <div class="tab-buttons">
             <button class="tab-btn active" onclick="switchTab('general')">Monitoreo General</button>
             <button class="tab-btn" onclick="switchTab('clientes')">Monitoreo Clientes (100+)</button>
+            <button class="tab-btn" onclick="switchTab('canal')">Monitoreo Canal</button>
         </div>
         <div>
             <button id="btn-probar-audio" onclick="probarAudioManual()" class="btn-audio-status">
@@ -341,7 +433,6 @@
 
     <!-- TAB 1: MONITOREO GENERAL -->
     <div id="tab-general" class="tab-content active">
-        <!-- KPIs Row -->
         <div class="kpi-grid">
             <div class="kpi-card">
                 <div class="kpi-title">Transacciones Trxs. (última hora)</div>
@@ -370,7 +461,6 @@
             </div>
         </div>
 
-        <!-- Alertas Premium -->
         <div class="premium-section">
             <div class="premium-header">
                 <div class="premium-title">Clientes sin transacciones digitales (LUKA-Banca Digital) últimos 5 minutos</div>
@@ -412,13 +502,61 @@
         <div class="premium-section">
             <div class="premium-header">
                 <div class="premium-title">Estado de Transacciones por Cliente (Vigentes)</div>
-                <input type="text" id="buscar-cliente" class="search-box" placeholder="Buscar cliente..." onkeyup="filtrarClientesUI()">
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button id="btn-filtro-rojos" class="btn-filtro-rojo" onclick="toggleFiltroRojos()">
+                        🚨 Solo Alertas (ROJO)
+                    </button>
+                    <input type="text" id="buscar-cliente" class="search-box" placeholder="Buscar cliente..." onkeyup="filtrarClientesUI()">
+                </div>
             </div>
-            <div class="clientes-grid" id="contenedor-clientes-100">
-                <!-- Se renderizan dinámicamente -->
+            <div class="clientes-grid" id="contenedor-clientes-100"></div>
+        </div>
+    </div>
+
+    <!-- TAB 3: MONITOREO CANAL -->
+    <div id="tab-canal" class="tab-content">
+        <div class="channel-filter-bar">
+            <div class="filter-group" style="flex: 1; min-width: 250px;">
+                <label class="filter-label">Entidad / Banco</label>
+                <input type="text" id="input-canal-autocomplete" list="lista-canales-ds" class="filter-input" placeholder="Escriba o seleccione un banco..." onchange="onCanalSeleccionado()">
+                <datalist id="lista-canales-ds"></datalist>
+                <input type="hidden" id="selected-cod-entidad">
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label">Fecha Inicio</label>
+                <input type="date" id="input-fecha-inicio" class="filter-input">
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label">Fecha Fin</label>
+                <input type="date" id="input-fecha-fin" class="filter-input">
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label">Hora Inicio</label>
+                <input type="time" id="input-hora-inicio" class="filter-input" value="00:00">
+            </div>
+
+            <div class="filter-group">
+                <label class="filter-label">Hora Fin</label>
+                <input type="time" id="input-hora-fin" class="filter-input" value="23:59">
+            </div>
+
+            <button class="btn-consultar" onclick="consultarGraficoCanal()">📊 Consultar Serie</button>
+        </div>
+
+        <div class="channel-chart-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+                <h3 id="canal-chart-title" style="font-size: 1.2rem; color: #0f172a;">Evolución Transaccional por Orígenes</h3>
+                <span style="font-size: 0.75rem; color: var(--text-secondary); background: #f1f5f9; padding: 4px 12px; border-radius: 12px;">Refresco: cada 15 min</span>
+            </div>
+            <div class="channel-chart-container">
+                <canvas id="canvas-chart-canal"></canvas>
             </div>
         </div>
     </div>
+
 </div>
 
 <script>
@@ -426,21 +564,32 @@
     let listaVoces = [];
     let currentTab = 'general';
     let cacheClientes = [];
+    let soloRojosActivo = false;
+    let mapaCanales = {}; 
+    let chartCanalInstance = null;
+    let canalInterval = null;
+    let globalDesgloseClientes = {}; // Variable global para guardar el desglose por cliente traído de la API
 
     function switchTab(tabName) {
         currentTab = tabName;
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
 
+        if (canalInterval) clearInterval(canalInterval);
+
         if (tabName === 'general') {
             document.querySelectorAll('.tab-btn')[0].classList.add('active');
             document.getElementById('tab-general').classList.add('active');
             fetchDashboardData();
             verificarAlertasPremium();
-        } else {
+        } else if (tabName === 'clientes') {
             document.querySelectorAll('.tab-btn')[1].classList.add('active');
             document.getElementById('tab-clientes').classList.add('active');
             fetchClientesData();
+        } else if (tabName === 'canal') {
+            document.querySelectorAll('.tab-btn')[2].classList.add('active');
+            document.getElementById('tab-canal').classList.add('active');
+            inicializarTabCanal();
         }
     }
 
@@ -487,6 +636,7 @@
         hablarAlerta("Prueba de audio exitosa. El sistema de alertas por voz está activo.");
     }
 
+    // TAB 1: GENERAL
     async function verificarAlertasPremium() {
         try {
             const response = await fetch('/api/v1/alertas-premium');
@@ -519,37 +669,47 @@
         }
     }
 
+    // TAB 2: CLIENTES
     async function fetchClientesData() {
-    const container = document.getElementById('contenedor-clientes-100');
-    if (cacheClientes.length === 0) {
-        container.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding: 20px; color:#64748b;">Cargando clientes...</div>';
+        try {
+            const response = await fetch('/api/v1/monitoreo-clientes');
+            const data = await response.json();
+            cacheClientes = data;
+            filtrarClientesUI();
+        } catch (error) {
+            console.error("Error Clientes 100+:", error);
+        }
     }
 
-    try {
-        const response = await fetch('/api/v1/monitoreo-clientes');
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        
-        const data = await response.json();
-        cacheClientes = data;
-        renderClientesUI(data);
-    } catch (error) {
-        console.error("Error Clientes 100+:", error);
-        container.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding: 20px; color:#ef4444;">Error consultando datos de clientes.</div>';
+    function toggleFiltroRojos() {
+        soloRojosActivo = !soloRojosActivo;
+        const btn = document.getElementById('btn-filtro-rojos');
+        if (soloRojosActivo) {
+            btn.classList.add('activo');
+            btn.innerText = '📋 Mostrar Todos';
+        } else {
+            btn.classList.remove('activo');
+            btn.innerText = '🚨 Solo Alertas (ROJO)';
+        }
+        filtrarClientesUI();
     }
-    }
-
 
     function renderClientesUI(lista) {
         const container = document.getElementById('contenedor-clientes-100');
         container.innerHTML = '';
-        let alertasClientes = [];
+        let alertasRojas = [];
 
         lista.forEach(cli => {
             const card = document.createElement('div');
-            card.className = `cliente-card ${cli.alerta ? 'alerta-critica-pulsante' : ''}`;
-            
-            if (cli.alerta) alertasClientes.push(cli.descripcion);
+            let claseColor = '';
+            if (cli.color_estado === 'ROJO') {
+                claseColor = 'tarjeta-roja';
+                alertasRojas.push(cli.descripcion);
+            } else if (cli.color_estado === 'NARANJA') {
+                claseColor = 'tarjeta-naranja';
+            }
 
+            card.className = `cliente-card ${claseColor}`;
             card.innerHTML = `
                 <div class="cliente-card-title">${cli.descripcion}</div>
                 <div class="cliente-card-value">${cli.ultima_hora}</div>
@@ -558,20 +718,199 @@
             container.appendChild(card);
         });
 
-        if (alertasClientes.length > 0 && currentTab === 'clientes') {
-            hablarAlerta(`Atención: Hay ${alertasClientes.length} clientes en alerta de inactividad.`);
+        if (alertasRojas.length > 0 && currentTab === 'clientes') {
+            hablarAlerta(`Atención: Hay ${alertasRojas.length} clientes sin transacciones el día de hoy.`);
         }
     }
 
     function filtrarClientesUI() {
         const query = document.getElementById('buscar-cliente').value.toLowerCase();
-        const filtrados = cacheClientes.filter(c => 
-            c.descripcion.toLowerCase().includes(query) || 
-            c.cod_cliente.toLowerCase().includes(query)
-        );
+        const filtrados = cacheClientes.filter(c => {
+            const coincideTexto = c.descripcion.toLowerCase().includes(query) || c.cod_cliente.toLowerCase().includes(query);
+            const coincideRojo = !soloRojosActivo || c.color_estado === 'ROJO';
+            return coincideTexto && coincideRojo;
+        });
         renderClientesUI(filtrados);
     }
 
+    // TAB 3: MONITOREO CANAL
+    async function inicializarTabCanal() {
+        const hoy = new Date();
+        const hoyStr = hoy.toISOString().split('T')[0];
+        
+        const hace7Dias = new Date();
+        hace7Dias.setDate(hoy.getDate() - 7);
+        const hace7DiasStr = hace7Dias.toISOString().split('T')[0];
+
+        if (!document.getElementById('input-fecha-inicio').value) {
+            document.getElementById('input-fecha-inicio').value = hace7DiasStr;
+            document.getElementById('input-fecha-fin').value = hoyStr;
+        }
+
+        try {
+            const res = await fetch('/api/v1/canales');
+            const canales = await res.json();
+            const dl = document.getElementById('lista-canales-ds');
+            dl.innerHTML = '';
+            mapaCanales = {};
+
+            canales.forEach(c => {
+                mapaCanales[c.descripcion.toUpperCase()] = c.cod_entidad;
+                const opt = document.createElement('option');
+                opt.value = c.descripcion;
+                dl.appendChild(opt);
+            });
+
+            if (canales.length > 0 && !document.getElementById('selected-cod-entidad').value) {
+                document.getElementById('input-canal-autocomplete').value = canales[0].descripcion;
+                document.getElementById('selected-cod-entidad').value = canales[0].cod_entidad;
+                consultarGraficoCanal();
+            }
+        } catch (e) {
+            console.error("Error cargando lista de canales:", e);
+        }
+
+        if (canalInterval) clearInterval(canalInterval);
+        canalInterval = setInterval(consultarGraficoCanal, 900000); // 15 minutos
+    }
+
+    function onCanalSeleccionado() {
+        const val = document.getElementById('input-canal-autocomplete').value.trim().toUpperCase();
+        if (mapaCanales[val]) {
+            document.getElementById('selected-cod-entidad').value = mapaCanales[val];
+        }
+    }
+
+    const COLORES_ORIGENES = {
+        'Banca Digital': '#3b82f6',
+        'LUKA': '#10b981',
+        'Mediador': '#8b5cf6',
+        'Físico': '#f59e0b',
+        'GenesisWeb': '#06b6d4',
+        'Multired': '#ec4899',
+        'Mis Cuentas': '#ef4444',
+        'Suite de Pagos': '#475569',
+        'Otros': '#6b7280'
+    };
+
+    async function consultarGraficoCanal() {
+        onCanalSeleccionado();
+        const codEntidad = document.getElementById('selected-cod-entidad').value;
+        const nombreCanal = document.getElementById('input-canal-autocomplete').value || 'Canal';
+        let fIni = document.getElementById('input-fecha-inicio').value;
+        let fFin = document.getElementById('input-fecha-fin').value;
+        const hIni = document.getElementById('input-hora-inicio').value;
+        const hFin = document.getElementById('input-hora-fin').value;
+
+        if (!codEntidad) {
+            alert("Por favor seleccione un banco/entidad válido.");
+            return;
+        }
+
+        const d1 = new Date(fIni);
+        const d2 = new Date(fFin);
+        const diffDays = Math.ceil((d2 - d1) / (1000 * 60 * 60 * 24));
+        if (diffDays > 14) {
+            alert("El período seleccionado supera el límite de 2 semanas (14 días). Se ajustará automáticamente a 14 días.");
+            d1.setDate(d1.getDate() + 14);
+            fFin = d1.toISOString().split('T')[0];
+            document.getElementById('input-fecha-fin').value = fFin;
+        }
+
+        document.getElementById('canal-chart-title').innerText = `Evolución Transaccional: ${nombreCanal} (${fIni} a ${fFin})`;
+
+        try {
+            const url = `/api/v1/monitoreo-canal?cod_entidad=${codEntidad}&fecha_inicio=${fIni}&fecha_fin=${fFin}&hora_inicio=${hIni}&hora_fin=${hFin}`;
+            const response = await fetch(url);
+            const data = await response.json();
+
+            globalDesgloseClientes = data.desglose_clientes || {};
+            renderGraficoCanal(data.marcas_tiempo, data.series);
+
+        } catch (error) {
+            console.error("Error consultando serie de canal:", error);
+        }
+    }
+
+    function renderGraficoCanal(labels, series) {
+        const ctx = document.getElementById('canvas-chart-canal').getContext('2d');
+
+        const datasets = Object.keys(series).map(cat => {
+            const color = COLORES_ORIGENES[cat] || '#94a3b8';
+            return {
+                label: cat,
+                data: series[cat],
+                borderColor: color,
+                backgroundColor: color,
+                borderWidth: 2,
+                tension: 0.3,
+                pointRadius: 0,
+                pointHoverRadius: 6
+            };
+        });
+
+        if (chartCanalInstance) {
+            chartCanalInstance.destroy();
+        }
+
+        chartCanalInstance = new Chart(ctx, {
+            type: 'line',
+            data: { labels: labels, datasets: datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'nearest', intersect: false },
+                plugins: {
+                    legend: {
+                        display: true, position: 'top',
+                        align: 'center',
+                        labels: { boxWidth: 12, padding: 15, usePointStyle: true, font: { size: 11, weight: 'bold' } }
+                    },
+                    tooltip: {
+                        enabled: true,
+                        callbacks: {
+                            // 📌 PERSONALIZACIÓN DEL TOOLTIP FLOTANTE
+                            afterBody: function(tooltipItems) {
+                                if (!tooltipItems || tooltipItems.length === 0) return [];
+                                
+                                const item = tooltipItems[0];
+                                const marcaTiempo = item.label; // ej: "2026-10-19 18:00"
+                                const tipoOrigen = item.dataset.label; // ej: "Banca Digital"
+                                const valorPunto = item.raw;
+
+                                if (valorPunto === 0) return [];
+
+                                if (globalDesgloseClientes[marcaTiempo] && globalDesgloseClientes[marcaTiempo][tipoOrigen]) {
+                                    const clientesObj = globalDesgloseClientes[marcaTiempo][tipoOrigen];
+                                    const lineas = ['\nDesglose por Cliente:'];
+                                    
+                                    for (const [nombreCli, cant] of Object.entries(clientesObj)) {
+                                        lineas.push(`• ${nombreCli} (${cant})`);
+                                    }
+
+                                    return lineas;
+                                }
+
+                                return [];
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { size: 10 }, color: '#64748b', maxRotation: 45, minRotation: 45 }
+                    },
+                    y: {
+                        grid: { color: '#f1f5f9' },
+                        ticks: { font: { size: 10 }, color: '#64748b' }
+                    }
+                }
+            }
+        });
+    }
+
+    // DASHBOARD GENERAL (TAB 1)
     const MAPA_COLORES_SERVICIOS = {
         "NUEVATEL": "#51E400", "TIGO HOME": "#3b82f6", "TELECEL": "#032766",
         "AXS": "#ef4444", "TUVES": "#8b5cf6", "ENTEL SERVICIOS": "#FF2C2C",
@@ -705,7 +1044,7 @@
         });
     }
 
-    // Inicializaciones
+    // Inicialización general
     verificarAlertasPremium();
     fetchDashboardData();
 
@@ -713,7 +1052,7 @@
         if (currentTab === 'general') {
             verificarAlertasPremium();
             fetchDashboardData();
-        } else {
+        } else if (currentTab === 'clientes') {
             fetchClientesData();
         }
     }, 15000);
