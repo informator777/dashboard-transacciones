@@ -389,16 +389,18 @@ def obtener_lista_canales():
 def clasificar_origen_sql(col_origen="origen"):
     return f"""
         CASE 
-            WHEN UPPER(TRIM({col_origen})) IN ('APWS', 'APMO', 'APWY', 'APWB', 'APWA') THEN 'Banca Digital'
-            WHEN UPPER(TRIM({col_origen})) = 'LUKA' THEN 'LUKA'
-            WHEN UPPER(TRIM({col_origen})) = 'APME' THEN 'Mediador'
-            WHEN UPPER(TRIM({col_origen})) IN ('APTE', 'APWE') THEN 'Físico'
-            WHEN UPPER(TRIM({col_origen})) IN ('GSEF', 'GSIS', 'GSQN', 'GSTC') THEN 'GenesisWeb'
-            WHEN UPPER(TRIM({col_origen})) IN ('APMP', 'MREF') THEN 'Multired'
-            WHEN UPPER(TRIM({col_origen})) LIKE 'MC%' OR UPPER(TRIM({col_origen})) LIKE 'MW%' 
-                 OR UPPER(TRIM({col_origen})) LIKE 'ME%' OR UPPER(TRIM({col_origen})) LIKE 'MR%' THEN 'Mis Cuentas'
-            WHEN UPPER(TRIM({col_origen})) LIKE 'SP%' OR UPPER(TRIM({col_origen})) LIKE 'MS%' THEN 'Suite de Pagos'
-            WHEN UPPER(TRIM({col_origen})) IN ('APEF', 'APIF') THEN 'Otros'
+            WHEN UPPER(TRIM(COALESCE({col_origen}, ''))) IN ('APWS', 'APMO', 'APWY', 'APWB', 'APWA') THEN 'Banca Digital'
+            WHEN UPPER(TRIM(COALESCE({col_origen}, ''))) = 'LUKA' THEN 'Whatsapp'
+            WHEN UPPER(TRIM(COALESCE({col_origen}, ''))) = 'APME' THEN 'Mediador'
+            
+            -- Categoría Físico (Ampliación de orígenes y comodines)
+            WHEN UPPER(TRIM(COALESCE({col_origen}, ''))) IN ('APTE', 'APWE') THEN 'Físico'
+            WHEN UPPER(TRIM(COALESCE({col_origen}, ''))) IN ('GSEF', 'GSIS', 'GSQN', 'GSTC') THEN 'GenesisWeb'
+            WHEN UPPER(TRIM(COALESCE({col_origen}, ''))) IN ('APMP', 'MREF') THEN 'Multired'
+            WHEN UPPER(TRIM(COALESCE({col_origen}, ''))) LIKE 'MC%' OR UPPER(TRIM(COALESCE({col_origen}, ''))) LIKE 'MW%' 
+                 OR UPPER(TRIM(COALESCE({col_origen}, ''))) LIKE 'ME%' OR UPPER(TRIM(COALESCE({col_origen}, ''))) LIKE 'MR%' THEN 'Mis Cuentas'
+            WHEN UPPER(TRIM(COALESCE({col_origen}, ''))) LIKE 'SP%' OR UPPER(TRIM(COALESCE({col_origen}, ''))) LIKE 'MS%' THEN 'Suite de Pagos'
+            WHEN UPPER(TRIM(COALESCE({col_origen}, ''))) IN ('APEF', 'APIF', 'APTF', 'POS', 'CAJA', 'VENTANILLA') THEN 'Otros'
             ELSE 'Otros'
         END
     """
@@ -412,7 +414,7 @@ def get_monitoreo_canal(
     hora_fin: str = Query("23:59", description="HH:MM")
 ):
     CATEGORIAS = [
-        'Banca Digital', 'LUKA', 'Mediador', 'Físico',
+        'Banca Digital', 'Whatsapp', 'Mediador', 'Físico',
         'GenesisWeb', 'Multired', 'Mis Cuentas', 'Suite de Pagos', 'Otros'
     ]
 
