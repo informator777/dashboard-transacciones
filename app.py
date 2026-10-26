@@ -6,11 +6,12 @@ from typing import List
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 import pymysql
+import os
 
-DB_HOST = "199.14.10.150"
-DB_USER = "datawuser"
-DB_PASS = "datawpassword"
-DB_NAME = "Dataw"
+DB_HOST = os.environ["DB_HOST"]
+DB_USER = os.environ["DB_USER"]
+DB_PASS = os.environ["DB_PASS"]
+DB_NAME = os.environ["DB_NAME"]
 
 ENTIDADES_MAP = {
     "0304": "LUKA", "1005": "BCP", "1017": "BANCO SOL",
