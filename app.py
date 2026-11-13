@@ -2,16 +2,17 @@ from contextlib import asynccontextmanager
 import threading
 import time
 from datetime import datetime, timedelta
-from typing import List
+from typing import List, Optional
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 import pymysql
 import os
 
-DB_HOST = os.environ["DB_HOST"]
+# Credenciales desde /etc/dashboard-transacciones/db.env (EnvironmentFile del servicio)
+DB_HOST = os.environ.get("DB_HOST", "127.0.0.1")
 DB_USER = os.environ["DB_USER"]
 DB_PASS = os.environ["DB_PASS"]
-DB_NAME = os.environ["DB_NAME"]
+DB_NAME = os.environ.get("DB_NAME", "Dataw")
 
 ENTIDADES_MAP = {
     "0304": "LUKA", "1005": "BCP", "1017": "BANCO SOL",
@@ -443,7 +444,7 @@ def get_monitoreo_canal(
 
     matriz_datos = {m: {cat: 0 for cat in CATEGORIAS} for m in marcas_tiempo}
     
-    # 📌 ESTRUCTURA DE DESGROSE DE CLIENTES POR MARCA DE TIEMPO Y TIPO DE ORIGEN
+    # ESTRUCTURA DE DESGLOSE DE CLIENTES POR MARCA DE TIEMPO Y TIPO DE ORIGEN
     desglose_clientes = {m: {cat: {} for cat in CATEGORIAS} for m in marcas_tiempo}
 
     try:
@@ -460,12 +461,14 @@ def get_monitoreo_canal(
 
         for row_t in tablas_rows:
             t_raw = str(row_t.get("tabla") or "").strip().lower()
-            if not t_raw: continue
+            if not t_raw:
+                continue
             tabla_name = t_raw if t_raw.startswith("mov_") else f"mov_{t_raw}"
             
             nombre_cliente = str(row_t.get("descripcion") or row_t.get("cod_cliente") or "Cliente").strip()
 
-            if tabla_name in TABLAS_EXCLUIDAS: continue
+            if tabla_name in TABLAS_EXCLUIDAS:
+                continue
 
             query = f"""
                 SELECT 
@@ -490,12 +493,11 @@ def get_monitoreo_canal(
                     if fh in matriz_datos and grp in matriz_datos[fh]:
                         matriz_datos[fh][grp] += tot
                         
-                        # Guardar desglose por cliente
                         if nombre_cliente not in desglose_clientes[fh][grp]:
                             desglose_clientes[fh][grp][nombre_cliente] = 0
                         desglose_clientes[fh][grp][nombre_cliente] += tot
 
-            except Exception as ex_t:
+            except Exception:
                 continue
 
         conn.close()
@@ -512,4 +514,119 @@ def get_monitoreo_canal(
         "marcas_tiempo": marcas_tiempo,
         "series": series,
         "desglose_clientes": desglose_clientes
+    }
+
+@app.get("/api/v1/monitoreo-ebanx")
+def get_monitoreo_ebanx(
+    fecha_inicio: Optional[str] = Query(None, description="YYYY-MM-DD (por defecto hace 7 días)"),
+    fecha_fin: Optional[str] = Query(None, description="YYYY-MM-DD (por defecto hoy)")
+):
+    ORIGENES_EBANX = (
+        'MREF', 'APMP', 'MCQN', 'APQR', 'APWS',
+        'APMO', 'MRQN', 'GSEF', 'GSQN', 'APTE'
+    )
+
+    hoy = datetime.now().date()
+    try:
+        dt_fin = datetime.strptime(fecha_fin, "%Y-%m-%d").date() if fecha_fin else hoy
+        dt_ini = datetime.strptime(fecha_inicio, "%Y-%m-%d").date() if fecha_inicio else (dt_fin - timedelta(days=7))
+        if dt_ini > dt_fin:
+            dt_ini, dt_fin = dt_fin, dt_ini
+    except Exception:
+        dt_fin = hoy
+        dt_ini = hoy - timedelta(days=7)
+
+    # Eje continuo de bloques de 2 horas (00:00, 02:00, ..., 22:00) para cada día
+    fechas_eje = []
+    curr = dt_ini
+    while curr <= dt_fin:
+        dia_str = curr.strftime("%Y-%m-%d")
+        for h in range(0, 24, 2):
+            fechas_eje.append(f"{dia_str} {h:02d}:00")
+        curr += timedelta(days=1)
+
+    entidades_dict = {}
+    total_general = 0
+
+    try:
+        conn = pymysql.connect(
+            host=DB_HOST, user=DB_USER, password=DB_PASS, database=DB_NAME,
+            connect_timeout=5, read_timeout=30, cursorclass=pymysql.cursors.DictCursor
+        )
+        cursor = conn.cursor()
+
+        # Agrupación por día y bloque de 2 horas usando índice nativo en fecha y cliente
+        placeholders_origen = ", ".join(["%s"] * len(ORIGENES_EBANX))
+        query = f"""
+            SELECT 
+                CONCAT(
+                    DATE_FORMAT(fecha, '%%Y-%%m-%%d'), ' ',
+                    LPAD(FLOOR(HOUR(hora) / 2) * 2, 2, '0'), ':00'
+                ) AS bloque_2h,
+                TRIM(CAST(cod_entidad AS CHAR)) AS cod_ent,
+                COUNT(*) AS total
+            FROM mov_pagosnet
+            WHERE fecha >= %s
+              AND fecha <= %s
+              AND cliente IN ('0187', '187')
+              AND estado = 'P'
+              AND origen IN ({placeholders_origen})
+            GROUP BY bloque_2h, cod_ent
+            ORDER BY bloque_2h ASC;
+        """
+
+        params = [dt_ini.strftime("%Y-%m-%d"), dt_fin.strftime("%Y-%m-%d"), *ORIGENES_EBANX]
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+
+        cursor.execute("SELECT TRIM(CAST(cod_entidad AS CHAR)) AS cod, TRIM(descripcion) AS nombre FROM entidad")
+        mapa_entidades = {}
+        for e in cursor.fetchall():
+            cod_raw = str(e["cod"])
+            mapa_entidades[cod_raw] = e["nombre"]
+            mapa_entidades[cod_raw.zfill(4)] = e["nombre"]
+
+        for r in rows:
+            b_2h = r["bloque_2h"]
+            cod_raw = str(r["cod_ent"]).strip()
+            cod = cod_raw.zfill(4)
+            nombre = mapa_entidades.get(cod_raw) or mapa_entidades.get(cod) or f"ENTIDAD {cod}"
+            cant = int(r["total"])
+
+            if cod not in entidades_dict:
+                entidades_dict[cod] = {
+                    "cod_entidad": cod,
+                    "nombre": nombre,
+                    "por_bloque": {},
+                    "total": 0
+                }
+
+            entidades_dict[cod]["por_bloque"][b_2h] = entidades_dict[cod]["por_bloque"].get(b_2h, 0) + cant
+            entidades_dict[cod]["total"] += cant
+            total_general += cant
+
+        conn.close()
+
+    except Exception as e:
+        print(f"Error consultando monitoreo Ebanx: {e}")
+
+    series = []
+    for cod, info in sorted(entidades_dict.items(), key=lambda x: x[1]["total"], reverse=True):
+        datos_bloques = [info["por_bloque"].get(b, 0) for b in fechas_eje]
+        series.append({
+            "cod_entidad": cod,
+            "entidad": info["nombre"],
+            "total_periodo": info["total"],
+            "data": datos_bloques
+        })
+
+    return {
+        "cliente": "0187",
+        "empresa": "EBANX",
+        "fecha_inicio": dt_ini.strftime("%Y-%m-%d"),
+        "fecha_fin": dt_fin.strftime("%Y-%m-%d"),
+        "total_transacciones": total_general,
+        "total_entidades": len(series),
+        "fechas": fechas_eje,
+        "series": series
     }
