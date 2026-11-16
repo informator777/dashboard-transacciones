@@ -547,16 +547,7 @@
 
             <button class="btn-consultar" onclick="consultarGraficoCanal()">📊 Consultar Serie</button>
         </div>
-
-        <div class="channel-chart-card">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
-                <h3 id="canal-chart-title" style="font-size: 1.2rem; color: #0f172a;">Evolución Transaccional por Orígenes</h3>
-                <span style="font-size: 0.75rem; color: var(--text-secondary); background: #f1f5f9; padding: 4px 12px; border-radius: 12px;">Refresco: cada 15 min</span>
-            </div>
-            <div class="channel-chart-container">
-                <canvas id="canvas-chart-canal"></canvas>
-            </div>
-        </div>
+        
     </div>
 
     <!-- TAB 4: MONITOR EBANX -->
@@ -579,24 +570,26 @@
             <div class="kpi-card">
                 <div class="kpi-title">Total Transacciones EBANX (0187)</div>
                 <div class="kpi-value" id="ebanx-total-tx">0</div>
-                <div class="kpi-subtext" id="ebanx-rango-subtext">Últimos 30 días</div>
+                <div class="kpi-subtext" id="ebanx-rango-subtext">Últimos 7 días</div>
             </div>
             <div class="kpi-card">
-                <div class="kpi-title">Entidades con Movimiento</div>
-                <div class="kpi-value" id="ebanx-total-entidades">0</div>
-                <div class="kpi-subtext" style="color: var(--text-secondary);">Orígenes: MREF, APMP, MCQN, APQR, APWS, APMO, MRQN, GSEF, GSQN, APTE</div>
+                <div class="kpi-title">TOP 10 Entidades por Recaudación</div>
+                <div class="kpi-value" id="ebanx-total-entidades">TOP 10</div>
+                <div class="kpi-subtext" id="ebanx-entidades-subtext" style="color: var(--text-secondary);">Mostrando las 10 entidades con mayor volumen</div>
             </div>
         </div>
 
         <div class="channel-chart-card">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
-                <h3 id="ebanx-chart-title" style="font-size: 1.2rem; color: #0f172a;">Evolución Diaria EBANX por Entidad</h3>
-                <span style="font-size: 0.75rem; color: var(--text-secondary); background: #f1f5f9; padding: 4px 12px; border-radius: 12px;">Cliente: 0187</span>
+                <h3 id="ebanx-chart-title" style="font-size: 1.2rem; color: #0f172a;">TOP 10 Recaudación EBANX por Entidad (cada 2h)</h3>
+                <span style="font-size: 0.75rem; color: var(--text-secondary); background: #f1f5f9; padding: 4px 12px; border-radius: 12px;">TOP 10 · Cliente: 0187</span>
             </div>
             <div class="channel-chart-container">
                 <canvas id="canvas-chart-ebanx"></canvas>
             </div>
         </div>
+
+       
     </div>
 
 </div>
@@ -968,7 +961,7 @@
         const hoyStr = hoy.toISOString().split('T')[0];
 
         const hace30Dias = new Date();
-        hace30Dias.setDate(hoy.getDate() - 30);
+        hace30Dias.setDate(hoy.getDate() - 7);
         const hace30DiasStr = hace30Dias.toISOString().split('T')[0];
 
         const inputIni = document.getElementById('ebanx-fecha-inicio');
@@ -989,37 +982,43 @@
             return;
         }
 
-        document.getElementById('ebanx-chart-title').innerText = `Evolución Diaria EBANX por Entidad (${fIni} a ${fFin})`;
-        document.getElementById('ebanx-rango-subtext').innerText = `Período: ${fIni} al ${fFin}`;
+        document.getElementById('ebanx-chart-title').innerText = `TOP 10 Recaudación EBANX por Entidad (${fIni} a ${fFin})`;
+        document.getElementById('ebanx-rango-subtext').innerText = `Intervalo: cada 2h (${fIni} al ${fFin})`;
 
         try {
             const url = `/api/v1/monitoreo-ebanx?fecha_inicio=${fIni}&fecha_fin=${fFin}`;
             const response = await fetch(url);
             const data = await response.json();
 
-            document.getElementById('ebanx-total-tx').innerText = (data.total_transacciones || 0).toLocaleString('es-BO');
-            document.getElementById('ebanx-total-entidades').innerText = data.total_entidades || 0;
+            const todasLasSeries = data.series || [];
+            const top10Series = todasLasSeries.slice(0, 10);
 
-            renderGraficoEbanx(data.fechas || [], data.series || []);
+            document.getElementById('ebanx-total-tx').innerText = (data.total_transacciones || 0).toLocaleString('es-BO');
+            document.getElementById('ebanx-total-entidades').innerText = `TOP ${top10Series.length}`;
+            document.getElementById('ebanx-entidades-subtext').innerText = `Top ${top10Series.length} de ${data.total_entidades || top10Series.length} entidades activas (pase el mouse sobre una entidad para aislar su curva)`;
+
+            renderGraficoEbanx(data.fechas || [], top10Series);
         } catch (error) {
             console.error("Error consultando Monitor Ebanx:", error);
         }
     }
 
-    function renderGraficoEbanx(fechas, series) {
+    function renderGraficoEbanx(fechas, seriesTop10) {
         const ctx = document.getElementById('canvas-chart-ebanx').getContext('2d');
 
-        const datasets = series.map((item, idx) => {
+        const datasets = seriesTop10.map((item, idx) => {
             const color = PALETA_ENTIDADES_EBANX[idx % PALETA_ENTIDADES_EBANX.length];
             return {
-                label: `${item.entidad} (${item.cod_entidad}) - Total: ${item.total_periodo.toLocaleString('es-BO')}`,
+                label: `#${idx + 1} ${item.entidad} (${item.cod_entidad})`,
+                totalPeriodo: item.total_periodo,
+                originalColor: color,
                 data: item.data,
                 borderColor: color,
                 backgroundColor: color,
-                borderWidth: 2.5,
+                borderWidth: 2,
                 tension: 0.25,
-                pointRadius: 3,
-                pointHoverRadius: 6
+                pointRadius: fechas.length > 100 ? 0 : 2,
+                pointHoverRadius: 5
             };
         });
 
@@ -1039,14 +1038,63 @@
                         display: true,
                         position: 'top',
                         align: 'center',
-                        labels: { boxWidth: 12, padding: 15, usePointStyle: true, font: { size: 11, weight: 'bold' } }
+                        labels: {
+                            boxWidth: 12,
+                            padding: 15,
+                            usePointStyle: true,
+                            font: { size: 11, weight: 'bold' }
+                        },
+                        // Al pasar el mouse por una entidad en la leyenda, resalta solo su línea
+                        onHover: function(event, legendItem, legend) {
+                            const indexActivo = legendItem.datasetIndex;
+                            const chart = legend.chart;
+                            chart.data.datasets.forEach((ds, i) => {
+                                if (i === indexActivo) {
+                                    ds.borderColor = ds.originalColor;
+                                    ds.backgroundColor = ds.originalColor;
+                                    ds.borderWidth = 3.5;
+                                } else {
+                                    ds.borderColor = ds.originalColor + '22'; // Transparencia suave
+                                    ds.backgroundColor = ds.originalColor + '22';
+                                    ds.borderWidth = 1;
+                                }
+                            });
+                            chart.update('none');
+                        },
+                        // Al quitar el mouse de la leyenda, restaura todas las líneas del Top 10
+                        onLeave: function(event, legendItem, legend) {
+                            const chart = legend.chart;
+                            chart.data.datasets.forEach((ds) => {
+                                ds.borderColor = ds.originalColor;
+                                ds.backgroundColor = ds.originalColor;
+                                ds.borderWidth = 2;
+                            });
+                            chart.update('none');
+                        }
                     },
-                    tooltip: { enabled: true }
+                    tooltip: {
+                        enabled: true,
+                        callbacks: {
+                            label: function(context) {
+                                const nombre = context.dataset.label || '';
+                                const valorBloque = (context.parsed.y || 0).toLocaleString('es-BO');
+                                const totalPeriodo = (context.dataset.totalPeriodo || 0).toLocaleString('es-BO');
+                                return ` ${nombre}: ${valorBloque} trxs (Acum. período: ${totalPeriodo})`;
+                            }
+                        }
+                    }
                 },
                 scales: {
                     x: {
                         grid: { display: false },
-                        ticks: { font: { size: 10 }, color: '#64748b', maxRotation: 45, minRotation: 45 }
+                        ticks: {
+                            font: { size: 10 },
+                            color: '#64748b',
+                            maxRotation: 45,
+                            minRotation: 45,
+                            autoSkip: true,
+                            maxTicksLimit: 24
+                        }
                     },
                     y: {
                         beginAtZero: true,

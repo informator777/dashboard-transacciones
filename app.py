@@ -526,7 +526,8 @@ def get_monitoreo_ebanx(
         'APMO', 'MRQN', 'GSEF', 'GSQN', 'APTE'
     )
 
-    hoy = datetime.now().date()
+    ahora_dt = datetime.now()
+    hoy = ahora_dt.date()
     try:
         dt_fin = datetime.strptime(fecha_fin, "%Y-%m-%d").date() if fecha_fin else hoy
         dt_ini = datetime.strptime(fecha_inicio, "%Y-%m-%d").date() if fecha_inicio else (dt_fin - timedelta(days=7))
@@ -536,12 +537,15 @@ def get_monitoreo_ebanx(
         dt_fin = hoy
         dt_ini = hoy - timedelta(days=7)
 
-    # Eje continuo de bloques de 2 horas (00:00, 02:00, ..., 22:00) para cada día
+    # Eje continuo de bloques de 2 horas cortado hasta la hora actual si es hoy
     fechas_eje = []
     curr = dt_ini
     while curr <= dt_fin:
+        if curr > hoy:
+            break
         dia_str = curr.strftime("%Y-%m-%d")
-        for h in range(0, 24, 2):
+        hora_limite = ahora_dt.hour if curr == hoy else 23
+        for h in range(0, hora_limite + 1, 2):
             fechas_eje.append(f"{dia_str} {h:02d}:00")
         curr += timedelta(days=1)
 
